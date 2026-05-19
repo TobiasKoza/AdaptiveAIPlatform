@@ -1,4 +1,4 @@
-function checkScenarioCoursePermissions() {
+﻿function checkScenarioCoursePermissions() {
     const courseId = document.getElementById("scenarioCourseSelect").value;
     const warningDiv = document.getElementById("scenarioCourseWarning");
     const btn = document.getElementById("btnCreateScenario");
@@ -21,7 +21,7 @@ function checkScenarioCoursePermissions() {
     } else {
         warningDiv.style.display = "none";
         btn.disabled = false;
-        btn.style.background = "#2563eb";
+        btn.style.background = "var(--btn-primary)";
         btn.style.cursor = "pointer";
     }
 }
@@ -99,7 +99,7 @@ async function loadMyCourses(forceRefresh = true) {
           </td>
           <td style="text-align:center; font-weight:bold;">${studentCount}</td>
           <td style="white-space: nowrap;">
-            <button class="btn-small" style="background:#3b82f6;" onclick="openCourseDetail('${c.courseId}')">Správa kurzu</button>
+            <button class="btn-small" style="background:var(--btn-primary);" onclick="openCourseDetail('${c.courseId}')">Správa kurzu</button>
           </td>
         </tr>`;
 
@@ -262,7 +262,7 @@ async function loadMyCourses(forceRefresh = true) {
 
             if (showLangSel) {
                 const langSel = document.createElement('select');
-                langSel.style.cssText = 'position:absolute;top:6px;right:8px;font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid var(--border-color);background:var(--bg-panel);color:var(--text-primary);z-index:10;cursor:pointer;';
+                langSel.className = 'lang-selector-floating';
                 ['python','javascript','php','text/x-csrc','text/x-sh'].forEach((mode, i) => {
                     const opt = document.createElement('option');
                     opt.value = mode;
@@ -283,13 +283,12 @@ async function loadMyCourses(forceRefresh = true) {
         // Language select — nad správné řešení, ne uvnitř CM boxu
         if (host && !rowEl.querySelector('.cm-lang-select')) {
             const langWrap = document.createElement('div');
-            langWrap.style.cssText = 'display:flex; align-items:center; gap:8px; margin-bottom:6px;';
+            langWrap.className = 'lang-row';
             const langLabel = document.createElement('span');
-            langLabel.style.cssText = 'font-size:11px; color:var(--text-muted); font-weight:bold;';
+            langLabel.className = 'lang-label-sm';
             langLabel.textContent = 'Jazyk kódu:';
             const langSel = document.createElement('select');
-            langSel.className = 'cm-lang-select';
-            langSel.style.cssText = 'font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid var(--border-color);background:var(--bg-panel);color:var(--text-primary);cursor:pointer;';
+            langSel.className = 'cm-lang-select lang-sel-inline';
             ['python','javascript','php','text/x-csrc','text/x-sh'].forEach((mode, i) => {
                 const opt = document.createElement('option');
                 opt.value = mode;
@@ -517,8 +516,9 @@ async function loadMyCourses(forceRefresh = true) {
       if (!window.validateTaskConfig('variantsContainerCreate')) return;
 
       const isCustomTemplate = requiredOs.startsWith("custom:");
+      const isNone = requiredOs === "none";
 
-      if (!isCustomTemplate && requiredOs === "windows") {
+      if (!isCustomTemplate && !isNone && requiredOs === "windows") {
         showToast("Windows prostředí zatím není v MVP podporováno.", true);
         return;
       }
@@ -529,34 +529,37 @@ async function loadMyCourses(forceRefresh = true) {
       const courseScenarioId = autoId;
 
       const templateMap = {
-        ubuntu: {
-          templateId: "base-ubuntu-cli",
-          templateTitle: "Standardní Ubuntu (Terminál)",
-          labImage: "ubuntu"
-        },
         kali: {
-          templateId: "base-kali-gui",
           templateTitle: "Kali Linux Desktop (GUI)",
-          labImage: "adaptivekoza01.azurecr.io/adaptive-lab-kali:v1"
+          labImage: "adaptivekoza01.azurecr.io/adaptive-lab-kali:v3"
+        },
+        ubuntu: {
+          templateTitle: "Ubuntu Desktop (GUI)",
+          labImage: "adaptivekoza01.azurecr.io/adaptive-lab-kali:ubuntu-v1"
+        },
+        none: {
+          templateTitle: "Žádné virtuální prostředí",
+          labImage: "skip"
         },
         windows: {
-          templateId: "demo-template-windows",
           templateTitle: "Standardní Windows Lab",
           labImage: "windows-placeholder"
         }
       };
 
-      // Resolve template — for custom templates we reuse existing LabTemplate, skip creation
+      // Resolve lab template ID — custom/none reuse fixed templates, ostatní vytvoří unikátní
       let uniqueLabTemplateId;
       let effectiveRequiredOs = requiredOs;
       if (isCustomTemplate) {
         uniqueLabTemplateId = requiredOs.replace("custom:", "");
         const selOpt = document.querySelector(`#scenarioRequiredOs option[value="${CSS.escape(requiredOs)}"]`);
         effectiveRequiredOs = selOpt?.dataset.baseImage || "kali";
+      } else if (isNone) {
+        uniqueLabTemplateId = "base-none";
       } else {
         uniqueLabTemplateId = `${autoId}-tech`;
       }
-      const selectedTemplate = isCustomTemplate ? null : templateMap[requiredOs];
+      const selectedTemplate = (isCustomTemplate || isNone) ? null : templateMap[requiredOs];
 
       const createBtn = document.getElementById("btnCreateScenario");
       if (createBtn) {
@@ -570,8 +573,9 @@ async function loadMyCourses(forceRefresh = true) {
       showToast(`Vytvářím zadání "${title}"...`);
 
       try {
-        // 1) Vytvoření unikátní technické šablony — přeskočíme pro custom templates
-        if (!isCustomTemplate) {
+        // 1) Vytvoření technické šablony
+        if (!isCustomTemplate && !isNone) {
+          // Kali, Ubuntu: unikátní šablona per-zadání (kvůli samostatnému timeoutu)
           await fetch(`${API_BASE}/labtemplates`, {
             method: "POST",
             headers: getHeaders(),
@@ -584,6 +588,20 @@ async function loadMyCourses(forceRefresh = true) {
               timeoutSeconds: timeLimit * 60
             })
           });
+        } else if (isNone) {
+          // Sdílená base šablona — idempotentní, 409 se ignoruje
+          await fetch(`${API_BASE}/labtemplates`, {
+            method: "POST",
+            headers: getHeaders(),
+            body: JSON.stringify({
+              templateId: "base-none",
+              title: "Žádné virtuální prostředí",
+              labImage: "skip",
+              fileShareName: "labs",
+              mountPath: "/mnt/output",
+              timeoutSeconds: 0
+            })
+          }).catch(() => {});
         }
 
         // 2) Vytvoření scénářové šablony s AI pravidly
@@ -608,7 +626,7 @@ async function loadMyCourses(forceRefresh = true) {
             title: title,
             description: description || "Praktické cvičení",
             instructions: instructions || "Postupujte podle zadání.",
-            hints: `[TIME_LIMIT:${timeLimit}][GRADING:${gradingStyle}${gradingStyleNeedsMax ? ':' + maxPoints : ''}][TYPE:${taskType}]${seqHint}${_autoSubmitChecked ? '[AUTO_SUBMIT:true]' : ''}${_thresholdTag}`,
+            hints: `[TIME_LIMIT:${timeLimit}][GRADING:${gradingStyle}${gradingStyleNeedsMax ? ':' + maxPoints : ''}][TYPE:${taskType}]${seqHint}${_autoSubmitChecked ? '[AUTO_SUBMIT:true]' : ''}${_thresholdTag}${(ids => ids ? `[PREREQS:${ids}]` : '')(window.getPrereqIds('prereqsCreateContainer'))}`,
             difficulty: "medium",
             expectedOutputs: expected,
             gradingRubric: rubric,
@@ -619,7 +637,6 @@ async function loadMyCourses(forceRefresh = true) {
 
         if (!resTemplate.ok) throw new Error(await resTemplate.text());
 
-        // Získáme všechny zaškrtnuté checkboxy a spojíme je čárkou (např. "skupina1,skupina3")
       // Whitelist UI → blacklist DB (nobody = blacklist všech skupin kurzu)
       const createList = document.getElementById("scenarioTargetGroupList");
       const allCourseGroups = window.getGroupsForCourse(courseId).map(g => getGroupId(g));
@@ -693,7 +710,7 @@ async function loadMyCourses(forceRefresh = true) {
                             <label style="font-size:11px; color:var(--text-muted); font-weight:bold;">Vyžadované řešení (Flag / IP / Přesná odpověď):</label>
                             <div style="display:flex; gap:4px; margin-top:4px;">
                               <input type="text" class="task-solution" placeholder="Např. flag{splneno} nebo 192.168.1.5" style="flex:1; padding:6px; border-radius:4px; border:1px solid var(--border-color); box-sizing:border-box; background:var(--bg-panel); color:var(--text-primary);" />
-                              <button type="button" onclick="window.addAlternativeSolution(this);" style="background:#2563eb; color:white; border:none; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:12px; white-space:nowrap;">+ další odpověď</button>
+                              <button type="button" onclick="window.addAlternativeSolution(this);" style="background:var(--btn-primary); color:white; border:none; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:12px; white-space:nowrap;">+ další odpověď</button>
                             </div>
                             <div class="alt-solutions-container"></div>
                           </div>
@@ -735,6 +752,8 @@ async function loadMyCourses(forceRefresh = true) {
         if (taskTypeSelect) {
             taskTypeSelect.value = "";
         }
+        const prereqCreateCont = document.getElementById('prereqsCreateContainer');
+        if (prereqCreateCont) prereqCreateCont.innerHTML = '';
         toggleScenarioFormType();
         
       } catch (err) {
@@ -772,7 +791,9 @@ async function loadMyCourses(forceRefresh = true) {
     }
 
     window._scenarioCache = window._scenarioCache || {};
+    window._scenariosByCourse = window._scenariosByCourse || {};
     scenarios.forEach(s => { window._scenarioCache[s.scenarioId] = s; });
+    window._scenariosByCourse[courseId] = scenarios;
 
     tbody.innerHTML = scenarios.map(s => {
       const scenarioId = s.scenarioId ?? "";
@@ -783,7 +804,7 @@ async function loadMyCourses(forceRefresh = true) {
       
       let timeLimitStr = "60 min";
       const limitMatch = (s.hints || "").match(/\[TIME_LIMIT:(\d+)\]/);
-      if (limitMatch) timeLimitStr = limitMatch[1] + " min";
+      if (limitMatch) timeLimitStr = parseInt(limitMatch[1]) > 0 ? limitMatch[1] + " min" : "Neomezeně";
       
       // LOGIKA PRO NOVÝ SLOUPEC: Vytažení správců
       const courseTeachers = allLoadedUsers.filter(u => u.course_ids && u.course_ids.includes(courseId) && ['teacher', 'admin'].includes(u.global_role));
@@ -802,7 +823,10 @@ async function loadMyCourses(forceRefresh = true) {
       let taskType = "Cvičení";
       let badgeStyle = "background:#f3f4f6; color:#374151; border: 1px solid #d1d5db;"; // Výchozí šedá
 
-      if (isAdaptive) {
+      if (tType === 'ai_education' || (isAdaptive && (s.hints || '').includes('[TYPE:ai_education]'))) {
+          taskType = "AI vzdělávání";
+          badgeStyle = "background:#fef3c7; color:#92400e; border:1px solid #fcd34d;";
+      } else if (isAdaptive) {
           taskType = "AI cvičení";
           badgeStyle = "background:#e0f2fe; color:#0369a1; border: 1px solid #7dd3fc;"; // Světle modrá
       } else if (tType === 'exam' || (s.maxAttempts === 1 && !tm)) { // (podpora i pro staré zkoušky)
@@ -822,7 +846,7 @@ async function loadMyCourses(forceRefresh = true) {
           <td>${escapeHtml(attempts)}</td>
           <td>${escapeHtml(timeLimitStr)}</td>
           <td style="white-space: nowrap;">
-            <button class="btn-small" style="background:#3b82f6; margin-right:5px;"
+            <button class="btn-small" style="background:var(--btn-primary); margin-right:5px;"
               onclick="openScenarioDetail('${escapeJsString(scenarioId)}', '${escapeJsString(courseId)}', '${escapeJsString(title)}', '${escapeJsString(s.description || '')}', '${escapeJsString(s.instructions || '')}', '${escapeJsString(s.deadline || '')}', '${escapeJsString(String(s.maxAttempts ?? 0))}', '${escapeJsString(s.assignedBy || '')}', '${escapeJsString(s.additionalManagers || '')}', '${escapeJsString(s.hints || '')}', '${escapeJsString(s.assigned_to_groups || '')}', '${escapeJsString(s.difficulty || '')}')">
               Správa zadání
             </button>
@@ -1028,7 +1052,7 @@ async function loadMyCourses(forceRefresh = true) {
         }
         if (extraBtnText && onExtra) {
             btnExtra.innerText = extraBtnText;
-            btnExtra.style.cssText = 'background:#ef4444; color:white; border:none; border-radius:6px; padding:8px 18px; cursor:pointer; font-size:14px;';
+            btnExtra.className = 'btn btn-danger';
             btnExtra.onclick = () => {
                 document.getElementById('universalConfirmModal').style.display = 'none';
                 onExtra();
@@ -1091,7 +1115,7 @@ async function loadMyCourses(forceRefresh = true) {
 
         const modalHtml = `
             <div id="scenarioActionOverlay" style="position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; display:flex; justify-content:center; align-items:center;">
-                <div class="panel" style="width:480px; max-width:95%; border:2px solid #2563eb; padding:24px;">
+                <div class="panel" style="width:480px; max-width:95%; border:2px solid #3e67a8; padding:24px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                         <h3 style="margin:0; color:var(--text-primary);">Správa zadání: <em>${escapeHtml(scenarioTitle)}</em></h3>
                         <span onclick="document.getElementById('scenarioActionOverlay').remove()" style="cursor:pointer; font-size:26px; color:#6b7280; line-height:1;">&times;</span>
@@ -1106,7 +1130,7 @@ async function loadMyCourses(forceRefresh = true) {
                                 <option value="">— Vyberte cílový kurz —</option>
                                 ${options}
                             </select>
-                            <button class="btn-small" style="background:#2563eb;" onclick="executeScenarioMove('${escapeJsString(courseId)}', '${escapeJsString(scenarioId)}', '${escapeJsString(scenarioTitle)}')">Přesunout</button>
+                            <button class="btn-small" style="background:var(--btn-primary);" onclick="executeScenarioMove('${escapeJsString(courseId)}', '${escapeJsString(scenarioId)}', '${escapeJsString(scenarioTitle)}')">Přesunout</button>
                         </div>
                     </div>
 
@@ -1218,7 +1242,6 @@ async function openCourseDetail(courseId, targetTab = 1) {
     document.getElementById('detailCourseScenarios').innerHTML = '<div class="muted" style="padding:6px;">Načítám zadání...</div>';
     document.getElementById('detailCourseGroups').innerHTML = '<div class="muted" style="padding:6px;">Načítám skupiny v kurzu...</div>';
     document.getElementById('detailCourseStudents').innerHTML = '<div class="muted" style="padding:6px;">Načítám seznam studentů...</div>';
-    // Zobrazíme řádky s selekty hned — ale prázdné, dokud se data nenačtou
     document.getElementById('addGroupRow').style.display = 'flex';
     document.getElementById('addStudentRow').style.display = 'flex';
     document.getElementById('courseDetailAddGroupSelect').innerHTML = '<option value="">Načítám skupiny...</option>';
@@ -1403,11 +1426,11 @@ async function openCourseDetail(courseId, targetTab = 1) {
             openCourseDetail(activeDetailCourseId, 3); 
             loadMyCourses(); 
             
-            setTimeout(() => { btn.innerText = originalText; btn.style.background = "#2563eb"; btn.disabled = false; }, 3000);
+            setTimeout(() => { btn.innerText = originalText; btn.style.background = "var(--btn-primary)"; btn.disabled = false; }, 3000);
         } catch (err) { 
             btn.innerText = "Chyba při přidání";
             btn.style.background = "#dc2626"; // Červená barva
-            setTimeout(() => { btn.innerText = originalText; btn.style.background = "#2563eb"; btn.disabled = false; }, 3000);
+            setTimeout(() => { btn.innerText = originalText; btn.style.background = "var(--btn-primary)"; btn.disabled = false; }, 3000);
         }
     }
 
@@ -1424,7 +1447,7 @@ async function openCourseDetail(courseId, targetTab = 1) {
         if (members.length === 0) {
             btn.innerText = "Skupina je prázdná";
             btn.style.background = "#dc2626"; // Červená
-            setTimeout(() => { btn.innerText = originalText; btn.style.background = "#3b82f6"; btn.disabled = false; }, 3000);
+            setTimeout(() => { btn.innerText = originalText; btn.style.background = "var(--btn-primary)"; btn.disabled = false; }, 3000);
             return;
         }
 
@@ -1457,7 +1480,7 @@ async function openCourseDetail(courseId, targetTab = 1) {
         
         setTimeout(() => { 
             btn.innerText = originalText; 
-            btn.style.background = "#3b82f6"; 
+            btn.style.background = "var(--btn-primary)"; 
             btn.disabled = false; 
         }, 4000);
     }
@@ -1686,7 +1709,6 @@ async function openCourseDetail(courseId, targetTab = 1) {
         document.getElementById('rgcStep1').style.display = 'block';
         document.getElementById('rgcStep2').style.display = 'none';
         
-        // Zobrazíme otázku
         document.getElementById('rgcQuestion').innerHTML = `Přejete si odstranit <strong>všechny studenty</strong> patřící do skupiny <strong>${escapeHtml(groupName)}</strong> z tohoto kurzu?`;
         document.getElementById('removeGroupCourseModal').style.display = 'flex';
     }
@@ -1763,22 +1785,51 @@ async function openCourseDetail(courseId, targetTab = 1) {
         openCourseDetail(courseId, 3); // Návrat na 3. záložku
     }
 
+    function _syncAiSubTypeCreate(isEdu) {
+        const exIds = ['aiEx_row2', 'aiEx_qtypes', 'aiEx_rubric', 'aiEx_skipCell', 'aiEx_subtasksCell', 'aiEx_gradingStyleCell', 'aiScenarioMaxPointsWrapper', 'aiEx_deadlineCell'];
+        exIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = isEdu ? 'none' : '';
+        });
+        // row1 contains title+OS (shared) and difficulty+adaptive (exercise-only) — hide only the exercise cells
+        const diffEl = document.getElementById('aiScenarioDifficulty');
+        const adaptEl = document.getElementById('aiScenarioAdaptive');
+        if (diffEl) diffEl.closest('.grow-1').style.display = isEdu ? 'none' : '';
+        if (adaptEl) adaptEl.closest('.grow-1').style.display = isEdu ? 'none' : '';
+        const eduEl = document.getElementById('aiEdu_fields');
+        if (eduEl) eduEl.style.display = isEdu ? 'block' : 'none';
+        const btn = document.getElementById('aiScenarioCreateBtn');
+        if (btn) btn.textContent = isEdu ? 'Vytvořit AI Vzdělávání' : 'Vytvořit AI Scénář';
+    }
+
     function toggleScenarioFormType() {
         const type = document.getElementById("scenarioTaskType").value;
-        
+
+        const prereqSection = document.getElementById("prereqsCreateSection");
+
         // Pokud ještě není vybrán typ zadání, schováme vše
         if (!type) {
             document.getElementById("standardScenarioFields").style.display = "none";
             document.getElementById("aiScenarioFields").style.display = "none";
-        } 
+            if (prereqSection) prereqSection.style.display = "none";
+        }
         else if (type === "adaptive") {
             document.getElementById("standardScenarioFields").style.display = "none";
             document.getElementById("aiScenarioFields").style.display = "block";
-        } 
+            if (prereqSection) prereqSection.style.display = "block";
+            _syncAiSubTypeCreate(false);
+        }
+        else if (type === "ai_education") {
+            document.getElementById("standardScenarioFields").style.display = "none";
+            document.getElementById("aiScenarioFields").style.display = "block";
+            if (prereqSection) prereqSection.style.display = "block";
+            _syncAiSubTypeCreate(true);
+        }
         else {
             document.getElementById("standardScenarioFields").style.display = "block";
             document.getElementById("aiScenarioFields").style.display = "none";
-            
+            if (prereqSection) prereqSection.style.display = "block";
+
             // Drobné UX vylepšení: Pokud učitel vybere Zkoušku, automaticky přepneme na 1 pokus
             if (type === "exam") {
                 document.getElementById("scenarioAttempts").value = "custom";
@@ -1788,7 +1839,7 @@ async function openCourseDetail(courseId, targetTab = 1) {
                 document.getElementById("scenarioAttempts").value = "0"; // Neomezeně
                 document.getElementById("scenarioCustomAttempts").style.display = "none";
             }
-            
+
             window.syncScenarioFormLocks(false);
         }
     }
@@ -1829,6 +1880,28 @@ async function openCourseDetail(courseId, targetTab = 1) {
         window.syncScenarioFormLocks(true);
     }
     window.syncEditAutoSubmitAiLock = syncEditAutoSubmitAiLock;
+
+    window.onEditScenarioTaskTypeChange = function() {
+        const type = document.getElementById('edit_scenarioTaskType')?.value || 'practice';
+
+        // Přepnutí na Zkoušku → 1 pokus (stejné chování jako v create formu)
+        if (type === 'exam') {
+            const attemptsEl = document.getElementById('edit_scenarioAttempts');
+            const customEl = document.getElementById('edit_scenarioCustomAttempts');
+            if (attemptsEl) attemptsEl.value = 'custom';
+            if (customEl) { customEl.style.display = 'block'; if (!customEl.value || customEl.value === '0') customEl.value = '1'; }
+        } else if (type === 'practice') {
+            const attemptsEl = document.getElementById('edit_scenarioAttempts');
+            const customEl = document.getElementById('edit_scenarioCustomAttempts');
+            if (attemptsEl && attemptsEl.value === 'custom' && customEl?.value === '1') {
+                attemptsEl.value = '0';
+                customEl.style.display = 'none';
+            }
+        }
+
+        // Aktualizuj viditelnost polí závislých na typu (AutoSubmit, PassThreshold, AI lock)
+        window.syncScenarioFormLocks(true);
+    };
 
     window.toggleTaskAccordion = function(headerEl) {
         const row = headerEl?.closest('.task-row');
@@ -1913,7 +1986,6 @@ async function openCourseDetail(courseId, targetTab = 1) {
 
         const div = document.createElement('div');
         div.className = 'task-row';
-        div.style.cssText = 'margin-bottom: 10px; background: var(--bg-status); padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;';
         div.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
@@ -2009,7 +2081,6 @@ async function openCourseDetail(courseId, targetTab = 1) {
         if (!badge) {
             badge = document.createElement('span');
             badge.className = 'task-type-badge';
-            badge.style.cssText = 'font-size:12px; color:var(--text-primary); background:var(--bg-panel); border:1px solid var(--border-color); border-radius:999px; padding:2px 8px;';
             select.parentElement.insertBefore(badge, select);
         }
 
@@ -2379,16 +2450,15 @@ async function openCourseDetail(courseId, targetTab = 1) {
 
         if (type === 'image') {
             return `<label style="font-size:11px; color:var(--text-muted); font-weight:bold;">Obrázek k úkolu:</label>
-                    <div class="task-image-dropzone"
-                         style="border:2px dashed var(--border-color); border-radius:8px; padding:22px 16px; text-align:center; color:var(--text-muted); font-size:13px; cursor:pointer; transition:background 0.2s, border-color 0.2s; margin-top:4px; margin-bottom:8px; user-select:none; min-height:120px; display:flex; flex-direction:column; align-items:center; justify-content:center; background:var(--bg-status);"
-                         ondragover="event.preventDefault(); this.style.background='var(--bg-panel)'; this.style.borderColor='var(--primary)';"
-                         ondragleave="this.style.background='var(--bg-status)'; this.style.borderColor='var(--border-color)';"
-                         ondrop="event.preventDefault(); this.style.background='var(--bg-status)'; this.style.borderColor='var(--border-color)'; const input = this.nextElementSibling; if(event.dataTransfer.files && event.dataTransfer.files.length > 0) { input.files = event.dataTransfer.files; window.handleTaskImageSelect(input); }"
+                    <div class="task-image-dropzone drop-zone" style="min-height:120px; display:flex; flex-direction:column; align-items:center; justify-content:center; background:var(--bg-status);"
+                         ondragover="event.preventDefault(); this.classList.add('drag-over');"
+                         ondragleave="this.classList.remove('drag-over');"
+                         ondrop="event.preventDefault(); this.classList.remove('drag-over'); const input = this.nextElementSibling; if(event.dataTransfer.files && event.dataTransfer.files.length > 0) { input.files = event.dataTransfer.files; window.handleTaskImageSelect(input); }"
                          onclick="this.nextElementSibling.click()">
-                        <div class="dropzone-placeholder" style="pointer-events:none;">
-                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:8px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                            <div style="font-weight:bold; color:var(--text-primary); margin-bottom:4px;">Přetáhněte obrázek sem nebo klikněte pro výběr</div>
-                            <div style="font-size:11px;">Podporované formáty: JPG, JPEG, PNG, GIF, WEBP, BMP</div>
+                        <div class="dropzone-placeholder drop-zone-icon">
+                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--btn-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:8px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                            <div class="drop-zone-title">Přetáhněte obrázek sem nebo klikněte pro výběr</div>
+                            <div class="drop-zone-hint">Podporované formáty: JPG, JPEG, PNG, GIF, WEBP, BMP</div>
                         </div>
                         <div class="task-image-preview" style="display:none; width:100%;"></div>
                     </div>
@@ -2419,7 +2489,7 @@ async function openCourseDetail(courseId, targetTab = 1) {
 
         const wrap = document.createElement('div');
         wrap.className = 'image-answer-type-wrapper';
-        wrap.style.cssText = 'margin-bottom:4px;';
+        wrap.style.marginBottom = '4px';
         wrap.innerHTML = `
             <div style="display:flex; gap:8px; align-items:center;">
                 <label style="font-size:11px; color:var(--text-muted); font-weight:bold; white-space:nowrap;">Typ odpovědi:</label>
@@ -2585,7 +2655,6 @@ async function openCourseDetail(courseId, targetTab = 1) {
         if (!input.files || !input.files[0]) return;
         const file = input.files[0];
         
-        // Získáme courseId (ať už z tvoření nového nebo z úpravy existujícího)
         const courseSelect = document.getElementById("scenarioCourseSelect");
         const courseId = (courseSelect && courseSelect.value) ? courseSelect.value : window.activeDetailScenarioCourseId;
         
@@ -3011,7 +3080,7 @@ async function openCourseDetail(courseId, targetTab = 1) {
         return;
     };
     window.closeAllEditPanels = function() {
-        ['panel-scenario-edit', 'panel-ai-edit', 'standardScenarioFields', 'panel-scenario-create'].forEach(id => {
+        ['panel-scenario-edit', 'panel-ai-edit', 'standardScenarioFields'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = 'none';
         });
@@ -3032,10 +3101,15 @@ async function openCourseDetail(courseId, targetTab = 1) {
             window.fillEditAiForm(
                 courseId, s.scenarioTemplateId || scenarioId, s.title || '', s.description || '',
                 s.instructions || '', s.hints || '', s.deadline || '',
-                String(s.maxAttempts ?? 0), s.gradingRubric || ''
+                String(s.maxAttempts ?? 0), s.gradingRubric || '', s.requiredOs || 'kali'
             );
             return;
         }
+
+        // Nastav OS select okamžitě (standardní volby existují hned)
+        const _editOsVal = s.requiredOs || 'kali';
+        const _editOsSel = document.getElementById('edit_scenarioRequiredOs');
+        if (_editOsSel) _editOsSel.value = _editOsVal;
 
         window.fillEditForm(
             courseId, scenarioId, s.title || '', s.description || '',
@@ -3043,6 +3117,18 @@ async function openCourseDetail(courseId, targetTab = 1) {
             s.hints || '', s.assigned_to_groups || '', s.difficulty || '',
             s.gradingRubric || '', s.expectedOutputs || '', s.taskConfigJson || ''
         );
+
+        // Pro custom images počkej na načtení options — standardní hodnoty nikdy nepřepisuj
+        if (_editOsVal.startsWith('custom:') && typeof loadAiScenarioLabTemplates === 'function') {
+            window._fillEditRegToken = (window._fillEditRegToken || 0) + 1;
+            const _regToken = window._fillEditRegToken;
+            loadAiScenarioLabTemplates().then(() => {
+                if (window._fillEditRegToken !== _regToken) return;
+                if (_editOsSel) _editOsSel.value = _editOsVal;
+            });
+        } else if (typeof loadAiScenarioLabTemplates === 'function') {
+            loadAiScenarioLabTemplates(); // načti custom options na pozadí, ale hodnotu neměň
+        }
     };
 
     window.fillEditForm = function(courseId, scenarioId, title, description, instructions, deadline, maxAttempts, hints, assignedToGroups, difficulty, gradingRubric, expectedOutputs, taskConfigJson) {
@@ -3171,6 +3257,8 @@ async function openCourseDetail(courseId, targetTab = 1) {
                     if (parsedConfig && parsedConfig.variants) {
                         variantsData = parsedConfig.variants.map(v => ({
                             variantNo: v.variantNo,
+                            gradingStyle: v.gradingStyle || 'points',
+                            maxPoints: v.maxPoints ?? 0,
                             tasks: v.tasks.map(t => ({
                                 text: t.prompt || '',
                                 sol: t.solution ? (t.solution + (t.alternatives && t.alternatives.length ? '||' + t.alternatives.join('||') : '')) : '',
@@ -3250,7 +3338,6 @@ async function openCourseDetail(courseId, targetTab = 1) {
                 const divVar = document.createElement('div');
                 divVar.className = 'variant-block';
                 divVar.setAttribute('data-variant', String(variantIndex + 1));
-                divVar.style.cssText = 'background: var(--bg-panel); border: 1px solid var(--border-color); padding: 15px; border-radius: 8px; margin-bottom: 15px;';
 
                 divVar.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -3273,8 +3360,7 @@ async function openCourseDetail(courseId, targetTab = 1) {
                 variantData.tasks.forEach((taskObj, taskIndex) => {
                     const div = document.createElement('div');
                     div.className = 'task-row';
-                    div.style.cssText = 'margin-bottom:10px; background:var(--bg-status); padding:10px; border:1px solid var(--border-color); border-radius:6px;';
-                    div.innerHTML = `
+                                div.innerHTML = `
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
                             <div style="display:flex; align-items:center; gap:10px;">
                                 <span class="task-number" style="font-weight:bold; color:var(--text-primary);"></span>
@@ -3345,7 +3431,7 @@ async function openCourseDetail(courseId, targetTab = 1) {
                                 for (let i = 1; i < sols.length; i++) {
                                     if (!sols[i]) continue;
                                     const altDiv = document.createElement('div');
-                                    altDiv.style.cssText = 'display:flex; gap:4px; margin-top:4px;';
+                                    altDiv.className = 'alt-row';
                                     altDiv.innerHTML = `
                                         <input type="text" class="task-solution-alt" value="${escapeHtml(sols[i])}" placeholder="Další možná odpověď..." style="flex:1; padding:6px; border-radius:4px; border:1px solid var(--border-color); box-sizing:border-box; background:var(--bg-panel); color:var(--text-primary);" />
                                         <button type="button" onclick="this.parentElement.remove();" style="background:#ef4444; color:white; border:none; border-radius:4px; padding:0 8px; cursor:pointer; font-size:16px; line-height:1;">×</button>`;
@@ -3506,22 +3592,33 @@ async function openCourseDetail(courseId, targetTab = 1) {
                 if (typeof window.syncScenarioFormLocks === 'function') {
                     window.syncScenarioFormLocks(true);
                 }
+                document.querySelectorAll('#variantsContainerEdit .variant-block').forEach(vb => {
+                    window.recalcVariantPoints(vb);
+                });
             }, 50);
         }
 
-        // AI zadání má vlastní edit formulář
-        const isAdaptiveType = tType === 'adaptive';
+        // AI zadání (cvičení i vzdělávání) má vlastní edit formulář
+        const isAdaptiveType = tType === 'adaptive' || tType === 'ai_education';
         if (isAdaptiveType) {
-            fillEditAiForm(courseId, scenarioId, title, description, instructions, hints, deadline, maxAttempts);
+            const _sForOs = (window._scenarioCache || {})[scenarioId];
+            fillEditAiForm(courseId, scenarioId, title, description, instructions, hints, deadline, maxAttempts, gradingRubric, _sForOs?.requiredOs || 'kali');
             return;
         }
+
+        // Prerekvizity
+        const prereqsEditCont = document.getElementById('prereqsEditContainer');
+        if (prereqsEditCont) { prereqsEditCont.dataset.courseId = courseId; prereqsEditCont.dataset.excludeId = scenarioId; }
+        const prereqEditM = (hints || '').match(/\[PREREQS:([^\]]+)\]/);
+        if (prereqEditM) window.fillPrereqContainer('prereqsEditContainer', courseId, prereqEditM[1], scenarioId);
+        else if (prereqsEditCont) prereqsEditCont.innerHTML = '';
 
         window.closeAllEditPanels();
         const editPanel = document.getElementById('panel-scenario-edit');
         editPanel.style.display = 'block';
         setTimeout(() => editPanel.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
     };
-    window.fillEditAiForm = function(courseId, scenarioId, title, description, instructions, hints, deadline, maxAttempts, gradingRubric) {
+    window.fillEditAiForm = function(courseId, scenarioId, title, description, instructions, hints, deadline, maxAttempts, gradingRubric, requiredOs) {
         activeDetailScenarioId = scenarioId;
         activeDetailScenarioCourseId = courseId;
 
@@ -3590,11 +3687,137 @@ async function openCourseDetail(courseId, targetTab = 1) {
         setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
         document.getElementById('aiEdit_status').innerText = '';
 
+        // Detect education type from hints and toggle sub-sections
+        const isEduEdit = hints.includes('[TYPE:ai_education]');
+        const editExIds = ['aiEditEx_row2', 'aiEditEx_qtypes', 'aiEditEx_rubric', 'aiEditEx_skipCell', 'aiEditEx_subtasksCell', 'aiEditEx_gradingStyleCell', 'aiEdit_maxPointsWrapper', 'aiEditEx_deadlineCell'];
+        editExIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = isEduEdit ? 'none' : '';
+        });
+        const editDiffEl = document.getElementById('aiEdit_difficulty');
+        const editAdaptEl = document.getElementById('aiEdit_adaptive');
+        if (editDiffEl) editDiffEl.closest('.grow-1').style.display = isEduEdit ? 'none' : '';
+        if (editAdaptEl) editAdaptEl.closest('.grow-1').style.display = isEduEdit ? 'none' : '';
+        const editEduEl = document.getElementById('aiEditEdu_fields');
+        if (editEduEl) editEduEl.style.display = isEduEdit ? 'block' : 'none';
+
+        if (isEduEdit) {
+            const topicsM = hints.match(/\[TOPICS:([^\]]*)\]/);
+            if (topicsM) { const el = document.getElementById('aiEditEdu_topics'); if (el) el.value = topicsM[1]; }
+            const presM = hints.match(/\[PRESENTATION:([^\]]*)\]/);
+            if (presM) { const el = document.getElementById('aiEditEdu_presentation'); if (el) el.value = presM[1]; }
+            const explainM = hints.match(/\[EXPLAIN_STYLE:([^\]]*)\]/);
+            if (explainM) { const el = document.getElementById('aiEditEdu_explainStyle'); if (el) el.value = explainM[1]; }
+            const verifyQM = hints.match(/\[VERIFY_Q:(\d+)\]/);
+            if (verifyQM) { const el = document.getElementById('aiEditEdu_verifyQ'); if (el) el.value = verifyQM[1]; }
+            const threshM = hints.match(/\[THRESHOLD:(\d+)\]/);
+            if (threshM) { const el = document.getElementById('aiEditEdu_threshold'); if (el) el.value = threshM[1]; }
+            const repeatsM = hints.match(/\[MAX_REPEATS:(\d+)\]/);
+            if (repeatsM) { const el = document.getElementById('aiEditEdu_maxRepeats'); if (el) el.value = repeatsM[1]; }
+            const vqtypesM = hints.match(/\[VERIFY_QTYPES:([^\]]*)\]/);
+            if (vqtypesM) { const el = document.getElementById('aiEditEdu_verifyQtypes'); if (el) el.value = vqtypesM[1]; }
+        }
+
+        // Obnov OS z parametru
+        const _osValue = requiredOs || 'kali';
+        const _osSelect = document.getElementById('aiEdit_os');
+        if (_osSelect) _osSelect.value = _osValue; // nastav hned (standardní volby existují okamžitě)
+
         // Načti materiály a šablony persony
         window._pendingAiEditMaterials = [];
         if (typeof renderPendingAiEditFiles === 'function') renderPendingAiEditFiles();
         if (typeof renderAiEditPersonaTemplateButtons === 'function') renderAiEditPersonaTemplateButtons();
         if (typeof loadAiScenarioMaterials === 'function') loadAiScenarioMaterials(scenarioId);
+        // Pro custom images načti options a nastav až po načtení — standardní hodnoty nikdy nepřepisuj
+        if (_osValue.startsWith('custom:') && typeof loadAiScenarioLabTemplates === 'function') {
+            window._fillEditAiToken = (window._fillEditAiToken || 0) + 1;
+            const _myToken = window._fillEditAiToken;
+            loadAiScenarioLabTemplates().then(() => {
+                if (window._fillEditAiToken !== _myToken) return;
+                if (_osSelect) _osSelect.value = _osValue;
+            });
+        } else if (typeof loadAiScenarioLabTemplates === 'function') {
+            loadAiScenarioLabTemplates(); // načti custom options na pozadí, ale hodnotu neměň
+        }
+
+        // Prerekvizity
+        const prereqsAiCont = document.getElementById('prereqsAiEditContainer');
+        if (prereqsAiCont) { prereqsAiCont.dataset.courseId = courseId; prereqsAiCont.dataset.excludeId = scenarioId; }
+        const prereqAiM = (hints || '').match(/\[PREREQS:([^\]]+)\]/);
+        if (prereqAiM) window.fillPrereqContainer('prereqsAiEditContainer', courseId, prereqAiM[1], scenarioId);
+        else if (prereqsAiCont) prereqsAiCont.innerHTML = '';
+    };
+
+    // ── Prerekvizity — pomocné funkce ────────────────────────────────────────
+    window._prereqOpts = function(courseId, excludeId) {
+        const scenarios = (window._scenariosByCourse || {})[courseId] || Object.values(window._scenarioCache || {}).filter(s => s.courseId === courseId);
+        return '<option value="">— Vyberte zadání —</option>' +
+            scenarios
+                .filter(s => !excludeId || s.scenarioId !== excludeId)
+                .map(s => `<option value="${s.scenarioId}">${escapeHtml(s.title || s.scenarioId)}</option>`)
+                .join('');
+    }
+
+    window.addPrereqRow = function(containerId, courseId, value, excludeId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        const row = document.createElement('div');
+        row.className = 'prereq-row';
+        row.style.cssText = 'display:flex; align-items:center; gap:6px; margin-bottom:6px;';
+        const sel = document.createElement('select');
+        sel.className = 'prereq-select';
+        sel.style.cssText = 'flex:1; margin-bottom:0; font-size:13px;';
+        sel.innerHTML = window._prereqOpts(courseId, excludeId);
+        if (value) {
+            sel.value = value;
+            if (sel.value !== value) {
+                // Option not found — cache may be stale or scenario not loaded yet.
+                // Add a temporary placeholder option so the value is preserved on save.
+                const placeholder = document.createElement('option');
+                placeholder.value = value;
+                placeholder.textContent = value;
+                sel.appendChild(placeholder);
+                sel.value = value;
+            }
+        }
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.textContent = '✕';
+        removeBtn.style.cssText = 'margin:0; padding:3px 10px; background:var(--bg-status); border:1px solid var(--border-color); border-radius:6px; color:var(--text-muted); cursor:pointer; font-size:13px; flex-shrink:0;';
+        removeBtn.onclick = () => row.remove();
+        row.appendChild(sel);
+        row.appendChild(removeBtn);
+        container.appendChild(row);
+    };
+
+    window.getPrereqIds = function(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return '';
+        const ids = Array.from(container.querySelectorAll('.prereq-select'))
+            .map(s => s.value.trim()).filter(Boolean);
+        return ids.length ? ids.join(',') : '';
+    };
+
+    window.reloadPrereqSelects = function(containerId, courseId, excludeId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        const opts = window._prereqOpts(courseId, excludeId);
+        Array.from(container.querySelectorAll('.prereq-select')).forEach(sel => {
+            const cur = sel.value;
+            sel.innerHTML = opts;
+            if (cur) sel.value = cur;
+        });
+    };
+
+    window.fillPrereqContainer = function(containerId, courseId, idsStr, excludeId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        container.innerHTML = '';
+        if (!idsStr) return;
+        idsStr.split(',').map(s => s.trim()).filter(Boolean)
+            .forEach(id => window.addPrereqRow(containerId, courseId, id, excludeId));
+        // After a short delay, refresh dropdown options in case cache was still loading.
+        setTimeout(() => window.reloadPrereqSelects(containerId, courseId, excludeId), 300);
     };
 
     window.renumberVariants = function(containerId) {
@@ -3822,7 +4045,8 @@ async function openCourseDetail(courseId, targetTab = 1) {
         const display = vBlock.querySelector('.variant-max-points-display');
         const taskInputs = Array.from(vBlock.querySelectorAll('.task-points'));
         const style = styleSel ? styleSel.value : 'points';
-        const maxVal = maxInp ? (parseInt(maxInp.value) || 10) : 10;
+        const _rawMax = parseInt(maxInp?.value, 10);
+        const maxVal = maxInp ? (isNaN(_rawMax) ? 10 : _rawMax) : 10;
         const isEdit = !!vBlock.closest('#variantsContainerEdit');
 
         const showTaskPoints = (inp, show) => {
@@ -4023,7 +4247,6 @@ async function openCourseDetail(courseId, targetTab = 1) {
 
         const div = document.createElement('div');
         div.className = 'task-row';
-        div.style.cssText = 'margin-bottom:10px; background:var(--bg-status); padding:10px; border:1px solid var(--border-color); border-radius:6px;';
         div.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
                 <div style="display:flex; align-items:center; gap:10px;">
@@ -4184,7 +4407,7 @@ async function openCourseDetail(courseId, targetTab = 1) {
         const _editThCbSave = document.getElementById('edit_scenarioPassThresholdCb');
         const _editThValSave = document.getElementById('edit_scenarioPassThreshold')?.value;
         const editThreshold = (_editThCbSave?.checked && _editThValSave) ? `[PASS_THRESHOLD:${parseInt(_editThValSave)}]` : '';
-        const hints = `[TIME_LIMIT:${tLimit}][GRADING:${gStyle}${gStyleNeedsMax ? ':' + gMax : ''}][TYPE:${tType}]${isSequential ? '[SEQUENTIAL:true]' : ''}${isExact ? '[EXACT:true]' : ''}${editAutoSubmit}${editThreshold}`;
+        const hints = `[TIME_LIMIT:${tLimit}][GRADING:${gStyle}${gStyleNeedsMax ? ':' + gMax : ''}][TYPE:${tType}]${isSequential ? '[SEQUENTIAL:true]' : ''}${isExact ? '[EXACT:true]' : ''}${editAutoSubmit}${editThreshold}${(ids => ids ? `[PREREQS:${ids}]` : '')(window.getPrereqIds('prereqsEditContainer'))}`;
         const taskConfigJsonStr = JSON.stringify(_editTaskConfig);
 
         // Whitelist UI → blacklist DB (nobody = blacklist všech skupin kurzu)
@@ -4207,11 +4430,18 @@ async function openCourseDetail(courseId, targetTab = 1) {
             const res = await fetch(`${API_BASE}/courses/${activeDetailScenarioCourseId}/scenarios/${activeDetailScenarioId}`, {
                 method: 'PUT',
                 headers: getHeaders(),
-                body: JSON.stringify({ title, description, instructions, gradingRubric, expectedOutputs, deadline: deadline || null, maxAttempts, hints, assigned_to_groups: editTargetGroup, taskConfigJson: taskConfigJsonStr })
+                body: JSON.stringify({ title, description, instructions, gradingRubric, expectedOutputs, deadline: deadline || null, maxAttempts, hints, assigned_to_groups: editTargetGroup, taskConfigJson: taskConfigJsonStr, requiredOs: document.getElementById('edit_scenarioRequiredOs')?.value || 'kali' })
             });
             if (!res.ok) {
                 const errText = await res.text();
                 throw new Error(errText);
+            }
+            // Immediately patch the local cache so reopening the edit form shows correct data
+            // even if loadScenarios() refreshes a different course (listScenariosCourseSelect).
+            if (window._scenarioCache && window._scenarioCache[activeDetailScenarioId]) {
+                window._scenarioCache[activeDetailScenarioId].hints = hints;
+                window._scenarioCache[activeDetailScenarioId].title = title;
+                window._scenarioCache[activeDetailScenarioId].description = description;
             }
             await loadScenarios();
         } catch (err) {
@@ -4228,7 +4458,7 @@ async function openCourseDetail(courseId, targetTab = 1) {
     window.addHintField = function(btn, hintText = '', hintCost = 1) {
         const container = btn.closest('.task-hints-container').querySelector('.hints-list');
         const div = document.createElement('div');
-        div.style.cssText = 'display:flex; gap:4px; margin-top:4px; align-items:flex-start;';
+        div.className = 'alt-row';
         div.innerHTML = `
             <textarea class="hint-text" placeholder="Text nápovědy..." rows="1" style="flex:1; min-width:0; margin:0; padding:5px 6px; border-radius:4px; border:1px solid var(--border-color); box-sizing:border-box; background:var(--bg-panel); color:var(--text-primary); font-size:12px; resize:vertical; min-height:28px; line-height:1.4;">${escapeHtml(hintText)}</textarea>
             <span style="font-size:11px; color:var(--text-muted); white-space:nowrap; padding-top:6px; margin:0;">srážka bodů:</span>
@@ -4240,7 +4470,7 @@ async function openCourseDetail(courseId, targetTab = 1) {
     window.addAlternativeSolution = function(btn) {
         const container = btn.closest('.task-row').querySelector('.alt-solutions-container');
         const div = document.createElement('div');
-        div.style.cssText = 'display:flex; gap:4px; margin-top:4px; align-items:flex-start;';
+        div.className = 'alt-row';
         div.innerHTML = `
             <input type="text" class="task-solution-alt" placeholder="Další možná odpověď..." style="flex:1; height:28px; padding:0 6px; border-radius:4px; border:1px solid var(--border-color); box-sizing:border-box; background:var(--bg-panel); color:var(--text-primary);" />
             <button type="button" onclick="this.parentElement.remove();" style="background:var(--color-danger, #ef4444); color:white; border:none; border-radius:4px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:18px; line-height:1; flex-shrink:0; padding:0;">×</button>`;
@@ -4304,5 +4534,8 @@ async function openCourseDetail(courseId, targetTab = 1) {
             el.style.display = isChecked ? 'none' : 'block';
         });
     };
+
+
+
 
 

@@ -46,98 +46,7 @@ window.getStructuredTaskPageStorageKey = function(scenarioId, attemptKey, varian
 };
 
 window.ensureStructuredTaskUiStyles = function() {
-    if (document.getElementById('structured-task-inline-styles')) return;
-
-    const style = document.createElement('style');
-    style.id = 'structured-task-inline-styles';
-    style.textContent = `
-        .structured-task-page {
-            display: none;
-        }
-        .structured-task-page.is-visible {
-            display: block;
-        }
-        .structured-choice-card {
-            transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
-            text-align: left;
-            user-select: none;
-        }
-        .structured-choice-card:hover {
-            border-color: var(--primary);
-            background: var(--bg-card-hover);
-        }
-        .structured-choice-card.is-selected {
-            border-color: var(--primary);
-            background: var(--bg-card-hover);
-        }
-        .structured-choice-letter {
-            min-width: 28px;
-            text-align: left;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-        .structured-choice-text {
-            flex: 1;
-            min-width: 0;
-            text-align: left;
-            color: var(--text-primary);
-            line-height: 1.5;
-        }
-        .structured-sort-item {
-            position: relative;
-            transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
-            user-select: none;
-        }
-        .structured-sort-item.dragging {
-            opacity: 0.55;
-            transform: scale(0.985);
-            border-color: var(--primary);
-            background: var(--bg-card-hover);
-            box-shadow: 0 0 0 1px var(--primary);
-        }
-        .structured-sort-drop-indicator {
-            position: relative;
-            height: 4px;
-            margin: -6px 14px 2px 14px;
-            pointer-events: none;
-            z-index: 2;
-        }
-        .structured-sort-drop-indicator::before {
-            content: "";
-            position: absolute;
-            left: 10px;
-            right: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            height: 4px;
-            border-radius: 999px;
-            background: #60a5fa;
-            opacity: 1;
-        }
-        .structured-sort-drop-indicator::after {
-            content: "";
-            position: absolute;
-            left: 2px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 10px;
-            height: 10px;
-            border-radius: 999px;
-            background: #60a5fa;
-            opacity: 1;
-        }
-        .structured-sort-grip {
-            font-size: 16px;
-            color: var(--text-muted);
-            letter-spacing: 1px;
-        }
-        .structured-task-nav-btn[disabled] {
-            opacity: 0.45;
-            cursor: not-allowed;
-            pointer-events: none;
-        }
-    `;
-    document.head.appendChild(style);
+    // Styly jsou nyní v style.css — funkce zachována pro zpětnou kompatibilitu volajících míst
 };
 
 window.getStructuredCurrentTaskIndex = function(totalTasks) {
@@ -647,7 +556,7 @@ window.restoreStructuredHintsUi = function() {
                 const hint = hints[i];
                 const costText = hint.cost > 0 ? ` (srážka: ${hint.cost} b)` : '';
                 const div = document.createElement('div');
-                div.style.cssText = 'margin-top:6px; padding:8px 12px; background:var(--bg-status); border-left:3px solid #f59e0b; border-radius:0 6px 6px 0; font-size:13px; color:var(--text-primary);';
+                div.className = 'hint-box';
                 div.innerHTML = `<strong style="color:#f59e0b;">Nápověda ${i + 1}${costText}:</strong> ${escapeHtml(hint.text)}`;
                 log.appendChild(div);
             }
@@ -686,7 +595,7 @@ window.showStructuredHint = function(taskIndex) {
             const log = document.getElementById(`structured-hints-log-${taskIndex}`);
             if (log) {
                 const div = document.createElement('div');
-                div.style.cssText = 'margin-top:6px; padding:8px 12px; background:var(--bg-status); border-left:3px solid #f59e0b; border-radius:0 6px 6px 0; font-size:13px; color:var(--text-primary);';
+                div.className = 'hint-box';
                 div.innerHTML = `<strong style="color:#f59e0b;">Nápověda ${used + 1}${costText}:</strong> ${escapeHtml(hint.text)}`;
                 log.appendChild(div);
             }
@@ -1153,6 +1062,7 @@ function renderScenarios() {
     }
 
     listEl.innerHTML = "";
+    document.getElementById('prereq-tooltip')?.remove();
 
     currentScenarios.forEach(scenario => {
     const state = computeStudentState(scenario.scenarioId);
@@ -1178,37 +1088,50 @@ function renderScenarios() {
     const thresholdMatch = scenarioHints.match(/\[PASS_THRESHOLD:(\d+)\]/);
     const passThreshold = thresholdMatch ? parseInt(thresholdMatch[1], 10) : null;
     const gradingInfo = parseGradingInfo(scenarioHints);
+    const _hasExplicitGrading = /\[GRADING:/.test(scenarioHints);
     const isAutoSubmitScenario = scenarioHints.includes('[AUTO_SUBMIT:true]');
     const isAttemptsTypoCard = scenario.maxAttempts > 50;
     const usedAttemptsCard = allScenarioAttempts.filter(a => a.status !== "archived").length;
     const limitReachedCard = scenario.maxAttempts > 0 && !isAttemptsTypoCard && usedAttemptsCard >= scenario.maxAttempts;
 
-    const hasPassedAnyAttempt = passThreshold !== null && allScenarioAttempts.some(attempt => {
-        let score = attempt.score;
+    const _gradedAttempts = allScenarioAttempts
+        .filter(a => a.learningStatus === 'evaluated' || a.learningStatus === 'archived' || a.status === 'archived')
+        .sort((a, b) => (b.runNumber || 0) - (a.runNumber || 0));
+    const _lastGraded = _gradedAttempts[0] || null;
 
+    let hasPassedAnyAttempt = false;
+    if (_lastGraded) {
+        let score = _lastGraded.score;
         if (score === null || score === undefined || score === "") {
-            const relatedSubmission = currentSubmissions.find(sub => sub.attemptId === attempt.attemptId);
-            score = relatedSubmission?.score;
+            const relatedSub = currentSubmissions.find(sub => sub.attemptId === _lastGraded.attemptId);
+            score = relatedSub?.score;
         }
 
-        if (score === null || score === undefined || score === "") {
-            const storedPassResult = localStorage.getItem(`pass_result_${attempt.attemptId}`);
-            if (storedPassResult) {
-                try {
-                    const parsed = JSON.parse(storedPassResult);
-                    return parsed?.passed === true;
-                } catch (e) {}
+        if (passThreshold !== null) {
+            if (score === null || score === undefined || score === "") {
+                const storedPassResult = localStorage.getItem(`pass_result_${_lastGraded.attemptId}`);
+                if (storedPassResult) {
+                    try { hasPassedAnyAttempt = JSON.parse(storedPassResult)?.passed === true; } catch (e) {}
+                }
+            } else {
+                const numericScore = Number(score);
+                // Use explicit [GRADING:points:X] max if present; otherwise derive from stepDetails
+                let maxScore = _hasExplicitGrading ? Number(gradingInfo?.max || 0) : 0;
+                if (!maxScore) {
+                    const _relSub = currentSubmissions.find(s => s.attemptId === _lastGraded.attemptId);
+                    const _sdRaw = _relSub?.stepDetails || _relSub?.step_details || _lastGraded?.stepDetails || '';
+                    const _sd = (() => { try { return JSON.parse(_sdRaw || '[]'); } catch { return []; } })();
+                    if (_sd.length > 0) maxScore = _sd.reduce((sum, s) => sum + (Number(s.max_points) || 0), 0);
+                }
+                if (!maxScore) maxScore = Number(gradingInfo?.max || 0);
+                if (Number.isFinite(numericScore) && Number.isFinite(maxScore) && maxScore > 0) {
+                    hasPassedAnyAttempt = Math.round((numericScore / maxScore) * 100) >= passThreshold;
+                }
             }
-            return false;
+        } else if (_hasExplicitGrading && gradingInfo.style !== 'none' && score !== null && score !== undefined && score !== "") {
+            hasPassedAnyAttempt = getGradeFromScore(score, gradingInfo) !== 'F' && getGradeFromScore(score, gradingInfo) !== '-';
         }
-
-        const numericScore = Number(score);
-        const maxScore = Number(gradingInfo?.max || 0);
-        if (!Number.isFinite(numericScore) || !Number.isFinite(maxScore) || maxScore <= 0) return false;
-
-        const percent = Math.round((numericScore / maxScore) * 100);
-        return percent >= passThreshold;
-    });
+    }
 
     let translatedState = state;
     let badgeClass = state;
@@ -1220,6 +1143,7 @@ function renderScenarios() {
         }
     }
     if (state === "started") translatedState = `${runNum}. pokus je rozpracován`;
+    if (state === "paused") { translatedState = `${runNum}. pokus byl pozastaven`; badgeClass = "paused"; }
     if (state === "pending_submission") {
         translatedState = `${runNum}. pokus čeká na odevzdání`;
         badgeClass = "started"; // Převezme CSS styly rozpracovaného labu
@@ -1255,18 +1179,67 @@ function renderScenarios() {
         if (!activeStatesForLock.includes(atm.status)) return false;
         const sub = currentSubmissions.find(sub => sub.attemptId === atm.attemptId);
         const isSubmitted = sub && (sub.status === "submitted" || sub.status === "evaluated")
-            || atm.learningStatus === "submitted" || atm.learningStatus === "evaluated";
+            || atm.learningStatus === "submitted" || atm.learningStatus === "evaluated"
+            || atm.learningStatus === "paused";
         return !isSubmitted;
     });
 
-    if (lockedByOtherScenarioId) {
-        card.style.cssText = "padding: 10px 14px; cursor: not-allowed; border: 1px solid var(--border-color); border-radius: 8px; transition: background 0.15s; margin-bottom: 8px; opacity: 0.45;";
+    // Prerekvizity
+    const prereqM = scenarioHints.match(/\[PREREQS:([^\]]+)\]/);
+    const prereqIds = prereqM ? prereqM[1].split(',').map(s => s.trim()).filter(Boolean) : [];
+    const missingPrereqIds = prereqIds.filter(pid => {
+        const prereqState = computeStudentState(pid);
+        if (prereqState === 'submitted' || prereqState === 'evaluated') return false;
+        // Zkontroluj i archivované pokusy (teacher umožnil další pokus po odevzdání)
+        return !currentAttempts.some(a =>
+            a.scenarioId === pid && (
+                a.status === 'archived' ||
+                a.learningStatus === 'submitted' ||
+                a.learningStatus === 'evaluated' ||
+                currentSubmissions.some(s => s.attemptId === a.attemptId && (s.status === 'submitted' || s.status === 'evaluated'))
+            )
+        );
+    });
+    const isPrereqLocked = missingPrereqIds.length > 0;
+
+    card.className = "scenario-card";
+    if (isPrereqLocked) {
+        card.classList.add("disabled");
+        card.style.opacity = '0.5';
+        card.style.cursor = 'not-allowed';
+        card.style.position = 'relative';
+        // Ikonka zámečku
+        const lockIcon = document.createElement('div');
+        lockIcon.style.cssText = 'position:absolute; top:8px; right:8px; color:var(--text-muted); opacity:0.8;';
+        lockIcon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+        card.appendChild(lockIcon);
+        // Tooltip
+        const missingNames = missingPrereqIds.map(pid => {
+            const s = currentScenarios.find(sc => sc.scenarioId === pid);
+            return s ? (s.title || pid) : pid;
+        });
+        card.addEventListener('mouseenter', e => {
+            const tip = document.createElement('div');
+            tip.id = 'prereq-tooltip';
+            tip.style.cssText = 'position:fixed; background:var(--bg-panel); border:1px solid var(--border-color); border-radius:8px; padding:8px 12px; font-size:13px; color:var(--text-primary); box-shadow:0 4px 12px rgba(0,0,0,0.3); z-index:9999; max-width:250px; pointer-events:none;';
+            tip.textContent = `Nejprve splňte: ${missingNames.join(', ')}`;
+            tip.style.left = (e.clientX + 12) + 'px';
+            tip.style.top = (e.clientY + 12) + 'px';
+            document.body.appendChild(tip);
+        });
+        card.addEventListener('mousemove', e => {
+            const tip = document.getElementById('prereq-tooltip');
+            if (tip) { tip.style.left = (e.clientX + 12) + 'px'; tip.style.top = (e.clientY + 12) + 'px'; }
+        });
+        card.addEventListener('mouseleave', () => { document.getElementById('prereq-tooltip')?.remove(); });
+        card.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); });
+    } else if (lockedByOtherScenarioId) {
+        card.classList.add("disabled");
         card.title = "Nejprve dokonči a odevzdej rozpracovanou úlohu.";
     } else if (limitReachedCard) {
-        card.style.cssText = "padding: 10px 14px; cursor: not-allowed; border: 1px solid var(--border-color); border-radius: 8px; transition: background 0.15s; margin-bottom: 8px; opacity: 0.45;";
+        card.classList.add("disabled");
         card.title = "Počet pokusů byl vyčerpán.";
     } else {
-        card.style.cssText = "padding: 10px 14px; cursor: pointer; border: 1px solid var(--border-color); border-radius: 8px; transition: background 0.15s; margin-bottom: 8px;";
         card.addEventListener("click", () => selectScenario(scenario.scenarioId));
     }
     listEl.appendChild(card);
@@ -1291,7 +1264,8 @@ function selectScenario(scenarioId) {
         if (!activeStatesForLock.includes(atm.status)) continue;
         const sub = currentSubmissions.find(sub => sub.attemptId === atm.attemptId);
         const isSubmitted = (sub && (sub.status === "submitted" || sub.status === "evaluated"))
-            || atm.learningStatus === "submitted" || atm.learningStatus === "evaluated";
+            || atm.learningStatus === "submitted" || atm.learningStatus === "evaluated"
+            || atm.learningStatus === "paused";
         if (!isSubmitted) {
             showToast("Nejprve dokonči a odevzdej rozpracovanou úlohu.", true);
             return;
@@ -1299,10 +1273,14 @@ function selectScenario(scenarioId) {
     }
 
     clearPolling();
-    clearPageMessage(); 
+    clearPageMessage();
+    // Deaktivuj AI modul předchozího scénáře (resetuje isActive, buildPayload, _edu.isRunning)
+    if (typeof window.aiScenario?.deactivate === 'function') window.aiScenario.deactivate();
     currentScenarioId = scenarioId;
     localStorage.setItem("last_scenario_id", scenarioId);
     renderScenarios();
+    const _detailBody = document.getElementById("scenarioDetailBody");
+    if (_detailBody) _detailBody.style.display = "block";
     renderScenarioDetail();
 
     const latestAttempt = latestAttemptMap[scenarioId];
@@ -1319,8 +1297,8 @@ async function startAiScenario() {
     if (!scenario) return;
     const btn = document.getElementById('startBtn');
 
-    // Pokud scénář vyžaduje skutečný lab (ne skip) → použij normální startScenario flow
-    const needsLab = scenario.requiredOs && scenario.requiredOs !== 'skip';
+    // Pokud scénář vyžaduje skutečný lab (ne skip, ne none) → použij normální startScenario flow
+    const needsLab = scenario.requiredOs && scenario.requiredOs !== 'skip' && scenario.requiredOs !== 'none';
     if (needsLab) {
         startScenario();
         return;
@@ -1328,23 +1306,19 @@ async function startAiScenario() {
 
     // Bez labu → rovnou vytvoř pokus a spusť AI
     if (btn) { btn.disabled = true; btn.textContent = 'Připravuji…'; }
+    showToast('Spouštím úlohu…', false, true);
     await initAiScenarioSafe(scenario, null, 'available', currentCourseId);
     if (btn) btn.style.display = 'none';
 }
 
 function ensureAiSpinnerCss() {
-    if (document.getElementById('ai-spinner-style')) return;
-    const style = document.createElement('style');
-    style.id = 'ai-spinner-style';
-    style.textContent = `.ai-spinner{width:20px;height:20px;border:3px solid var(--border-color,#e5e7eb);border-top-color:var(--primary,#1a3a6b);border-radius:50%;animation:ai-spin 0.8s linear infinite;flex-shrink:0}@keyframes ai-spin{to{transform:rotate(360deg)}}.ai-step-hidden{display:none!important}`;
-    document.head.appendChild(style);
+    // Styly jsou nyní v style.css
 }
 
 async function initAiScenarioSafe(scenario, latestAttempt, state, courseId) {
     if (!window.aiScenario) return;
     if (window._aiInitRunning === scenario.scenarioId) return;
     window._aiInitRunning = scenario.scenarioId;
-    console.trace('[AI-INIT] voláno pro', scenario.scenarioId, '| latestAttempt:', latestAttempt?.attemptId ?? 'NULL', '| currentAttempts:', JSON.stringify(currentAttempts.map(a => ({id:a.attemptId, sid:a.scenarioId, status:a.status}))));
 
     try {
         let attempt = latestAttempt;
@@ -1354,6 +1328,15 @@ async function initAiScenarioSafe(scenario, latestAttempt, state, courseId) {
             currentAttempts = freshAttempts;
             buildLatestAttemptMap();
             attempt = latestAttemptMap[scenario.scenarioId] || null;
+        }
+
+        // Pokus je již odevzdaný/vyhodnocený → nevracet ho, vytvořit nový
+        if (attempt && (
+            attempt.status === 'archived' ||
+            attempt.learningStatus === 'submitted' ||
+            attempt.learningStatus === 'evaluated'
+        )) {
+            attempt = null;
         }
 
         if (!attempt) {
@@ -1384,9 +1367,10 @@ async function initAiScenarioSafe(scenario, latestAttempt, state, courseId) {
         }
 
         await window.aiScenario.init(scenario, attempt, state);
-    } catch {
+    } catch(e) {
     } finally {
         window._aiInitRunning = null;
+        hideToast();
     }
 }
 
@@ -1404,17 +1388,18 @@ async function renderScenarioDetail() {
     submitBtn.disabled = true;
 
     const submissionBlock = document.getElementById("submissionBlock");
-    if (submissionBlock) submissionBlock.style.display = "block";
+    if (submissionBlock) submissionBlock.style.display = "none";
 
     return;
     }
 
     const scenario = currentScenarios.find(s => s.scenarioId === currentScenarioId);
     const latestAttempt = latestAttemptMap[currentScenarioId];
+    const isPaused = latestAttempt?.learningStatus === "paused";
 
     const pendingScore = null; // Zpráva o odevzdání se zobrazuje přímo v submitLatestAttempt
     const sub = latestAttempt ? currentSubmissions.find(s => s.attemptId === latestAttempt.attemptId) : null;
-    
+
     const state = computeStudentState(currentScenarioId);
     const deadlineText = scenario.deadline ? formatDate(scenario.deadline) : "Bez termínu";
     const isAttemptsTypo = scenario.maxAttempts > 50;
@@ -1734,16 +1719,6 @@ async function renderScenarioDetail() {
 
     const autoSubmitMeta = (scenario.hints || '').includes('[AUTO_SUBMIT:true]');
 
-    const evaluationModeLabel = autoSubmitMeta && passThreshold !== null
-        ? `Cvičení bez hodnocení učitelem (min. ${passThreshold} % pro splnění)`
-        : autoSubmitMeta
-            ? 'Cvičení bez hodnocení učitelem'
-            : (passThreshold !== null
-                ? (taskType === 'exam' || taskType === 'credit'
-                    ? 'Výsledek: prospěl / neprospěl'
-                    : 'Výsledek dle minimální úspěšnosti')
-                : '');
-
     const attemptInfoText = (scenario.maxAttempts > 0 && !isAttemptsTypo) ? `${displayRunNumber}. z ${scenario.maxAttempts}` : `${displayRunNumber}.`;
 
     // Vykreslení horního panelu zadání
@@ -1758,7 +1733,17 @@ async function renderScenarioDetail() {
     const isSubmittedOrEvaluated = state === "submitted" || state === "evaluated";
     const isAdaptive = scenario.hints?.includes('[ADAPTIVE:true]') || scenario.difficulty === 'adaptive';
     const isAutoSubmit = (scenario.hints || '').includes('[AUTO_SUBMIT:true]');
-    const needsLab = scenario.requiredOs && scenario.requiredOs !== 'skip';
+
+    const _modeMap = taskType === 'exam'
+        ? { label: 'Zkouška', style: 'background:#fee2e2; color:#991b1b; border:1px solid #fca5a5;' }
+        : taskType === 'credit'
+            ? { label: 'Klasifikovaný zápočet', style: 'background:#f3e8ff; color:#6b21a8; border:1px solid #d8b4fe;' }
+            : isAdaptive
+                ? { label: 'Učení', style: 'background:#fef3c7; color:#92400e; border:1px solid #fcd34d;' }
+                : { label: 'Cvičení', style: 'background:#f3f4f6; color:#374151; border:1px solid #d1d5db;' };
+    const evaluationModeLabel = `<span style="${_modeMap.style} padding:2px 10px; border-radius:999px; font-size:12px; font-weight:bold; display:inline-block;">${_modeMap.label}</span>`;
+    const needsLab = scenario.requiredOs && scenario.requiredOs !== 'skip' && scenario.requiredOs !== 'none';
+    const isNoLab = scenario.requiredOs === 'none';
     const hideTaskUntilReady = !labReady && !labFinished && !isSubmittedOrEvaluated
         && (!isAdaptive || (isAdaptive && needsLab && !hasStartedCurrentAttempt));
 
@@ -1781,24 +1766,37 @@ async function renderScenarioDetail() {
     <div class="scenario-meta-footer" style="margin-bottom: 16px;">
         <div><strong>Termín odevzdání:</strong> <span class="deadline-text">${deadlineTextObj}</span></div>
         <div><strong>Max. pokusů:</strong> ${maxAttemptsText}</div>
-        <div><strong>Čas na splnění:</strong> <span id="labCountdownDisplay" class="countdown-text">${timeLimit} min</span></div>
+        <div><strong>Čas na splnění:</strong> <span id="labCountdownDisplay" class="countdown-text">${timeLimit > 0 ? timeLimit + ' min' : 'Neomezeně'}</span></div>
         ${passThreshold !== null ? `<div><strong>Potřeba pro splnění:</strong> ${passThreshold} %</div>` : ''}
-        ${evaluationModeLabel ? `<div><strong>Režim:</strong> ${evaluationModeLabel}</div>` : ''}
+        <div style="display:flex; align-items:center; gap:6px;"><strong>Režim:</strong> ${evaluationModeLabel}</div>
     </div>
     <p class="scenario-description">${(finalDescription || "Tato úloha nemá žádný podrobný popis.").replace(/\n/g, '<br>')}</p>
     ${isSubmittedOrEvaluated ? `
     <div id="task-box-placeholder" style="padding: 20px; border: 1px dashed var(--border-color); border-radius: 8px; color: var(--text-muted); font-size: 14px; text-align: center; margin: 12px 0;">
         REVIZE ŘEŠENÍ JIŽ NENÍ MOŽNÁ
+    </div>` : isPaused ? `
+    <div id="task-box-placeholder" style="padding: 20px; border: 1px dashed var(--border-color); border-radius: 8px; color: var(--text-muted); font-size: 14px; text-align: center; margin: 12px 0;">
+        ⏸ Cvičení je pozastaveno. Klikněte na <strong>Pokračovat v učení</strong> pro obnovení.
     </div>` : hideTaskUntilReady ? `
     <div id="task-box-placeholder" style="padding: 20px; border: 1px dashed var(--border-color); border-radius: 8px; color: var(--text-muted); font-size: 14px; text-align: center; margin: 12px 0;">
-        ⏳ Zadání se zobrazí po přípravě laboratorního prostředí…
+        ⏳ ${isNoLab ? 'Zadání se zobrazí po načtení úlohy…' : 'Zadání se zobrazí po přípravě laboratorního prostředí…'}
     </div>` : (!isAdaptive || (isAdaptive && needsLab && !labReady && !labFinished) ? `
     <div class="task-box">
         <div class="task-instructions">${formattedInstructions}</div>
     </div>` : `<div id="ai-scenario-container">${(() => {
-    if (!latestAttempt || latestAttempt.learningStatus !== 'started' || window.aiScenario?.isActive()) return '';
+    const _isEduType = (scenario.hints || '').includes('[TYPE:ai_education]');
+    const _hasActiveAttempt = latestAttempt && latestAttempt.status !== 'archived' && latestAttempt.learningStatus === 'started';
+    if (!_hasActiveAttempt && state === 'available') {
+        const _placeholderMsg = _isEduType
+            ? '⏳ Vzdělávací obsah se zobrazí po spuštění úlohy…'
+            : '⏳ Zadání se zobrazí po načtení úlohy…';
+        return '<div id="task-box-placeholder" style="padding: 20px; border: 1px dashed var(--border-color); border-radius: 8px; color: var(--text-muted); font-size: 14px; text-align: center; margin: 12px 0;">' + _placeholderMsg + '</div>';
+    }
+    if (!_hasActiveAttempt || (window.aiScenario?.isActive() && window._resumingFromPause !== latestAttempt.attemptId && !window._aiInitRunning)) return '';
     const _pKey = 'ai_scenario_' + scenario.scenarioId + '_' + latestAttempt.attemptId;
-    const _hasProgress = !!localStorage.getItem(_pKey);
+    const _isResuming = window._resumingFromPause === latestAttempt.attemptId;
+    if (_isResuming) window._resumingFromPause = null;
+    const _hasProgress = _isResuming || !!localStorage.getItem(_pKey);
     const _msg = _hasProgress ? 'Načítám, kde jste naposledy skončili…' : 'Připravuji první úkol…';
     return '<div style="display:flex;align-items:center;gap:12px;padding:18px 20px;border:1px solid var(--border-color);border-radius:12px;background:var(--bg-panel);margin:12px 0;"><div class=\'ai-spinner\'></div><span style=\'color:var(--text-muted);font-size:14px;\'>' + _msg + '</span></div>';
 })()}</div>`)}
@@ -1809,7 +1807,8 @@ async function renderScenarioDetail() {
     const submissionArea = document.getElementById("submissionNote");
     const submissionLabel = document.querySelector("label[for='submissionNote']");
     const submissionBlock = document.getElementById("submissionBlock");
-    const hideTextarea = isSequential || isAdaptive || hasStructuredTasks;
+    const isLabActive = ['started', 'paused', 'pending_submission'].includes(state);
+    const hideTextarea = isSequential || isAdaptive || hasStructuredTasks || !isLabActive;
 
     if (submissionBlock) submissionBlock.style.display = hideTextarea ? "none" : "block";
     if (submissionArea) submissionArea.style.display = hideTextarea ? "none" : "block";
@@ -1853,7 +1852,8 @@ async function renderScenarioDetail() {
                 : null;
 
             // Známku zobraz jen pokud: není AUTO_SUBMIT A je evaluated (učitel hodnotil)
-            const pDate = pastAtm.createdAt ? new Date(pastAtm.createdAt).toLocaleDateString("cs-CZ") : "-";
+            const _dateRaw = pastAtm.submittedAt || pastAtm.createdAt;
+            const pDate = _dateRaw ? new Date(_dateRaw).toLocaleDateString("cs-CZ") : "-";
             // Přepočítej max z taskConfigJson pokud grading.max nesedí
             let _gradingMax = grading.max;
             try {
@@ -1885,11 +1885,18 @@ async function renderScenarioDetail() {
                 ? (passResult ? 'Splněno' : 'Nesplněno')
                 : null;
 
-            const submittedSolutionHtml = buildSubmittedStepsHtml(pSub?.contentPayload || pastAtm.submissionNote || "", isAutoSubmit);
+            const _stepDetailsJson = pSub?.stepDetails || pSub?.step_details || pastAtm?.stepDetails || pastAtm?.step_details || null;
+
+            const submittedSolutionHtml = buildSubmittedStepsHtml(pSub?.contentPayload || pastAtm.submissionNote || "", isAutoSubmit, _stepDetailsJson);
+
+            // Detekce edu payloadu
+            const _rawPayload = pSub?.contentPayload || pastAtm.submissionNote || '';
+            const _isEduPayload = _rawPayload.trimStart().startsWith('[AI_EDUCATION]');
 
             // Badge pro accordion — známka nebo splněno/nesplněno
-            const _hasScore = pScore !== null && pScore !== undefined && pScore !== "";
+            const _hasScore = !_isEduPayload && pScore !== null && pScore !== undefined && pScore !== "";
             const _headerBadge = (() => {
+                if (_isEduPayload) return `<span class="badge" style="background:#10b981;color:white;">Dokončeno</span>`;
                 if (passThreshold !== null && passResult !== null) {
                     const _c = passResult ? '#10b981' : '#ef4444';
                     return `<span class="badge" style="background:${_c};color:white;">${passResult ? '✓ Splněno' : '✗ Nesplněno'}</span>`;
@@ -1919,12 +1926,26 @@ async function renderScenarioDetail() {
                 <div class="accordion-content" style="font-size: 14px; line-height: 1.6; color: var(--text-primary);">
                 <div style="margin-top: 10px;"><strong>Datum:</strong> ${pDate}</div>
                 ${_contentScoreHtml}
-                ${pastAtm.learningStatus === 'submitted' && !isAutoSubmit ? `
+                ${pastAtm.learningStatus === 'submitted' && !isAutoSubmit && !_isEduPayload ? `
                 <div style="margin-top:12px; padding:10px 14px; border-left:3px solid #f59e0b; background:rgba(245,158,11,0.07); border-radius:0 8px 8px 0; color:var(--text-primary); font-size:13px;">
                     ⏳ <strong>Čeká na hodnocení učitelem.</strong> Výsledky se zobrazí po ohodnocení.
                 </div>` : ''}
-                ${(!isAutoSubmit && pastAtm.learningStatus === 'submitted') ? '' : (() => {
-                  const _payload = pSub?.contentPayload || pastAtm.submissionNote || '';
+                ${(!isAutoSubmit && pastAtm.learningStatus === 'submitted' && !_isEduPayload) ? '' : (() => {
+                  const _payload = _rawPayload;
+
+                  // AI vzdělávání — použij stejný render jako buildSubmittedStepsHtml
+                  if (_isEduPayload) {
+                      const _realFb = (() => {
+                          const _fb = (pFeedbackText || '').trim();
+                          if (!_fb || _fb === 'Automaticky ohodnoceno.') return '';
+                          return _fb;
+                      })();
+                      const _teacherFbHtml = _realFb ? `<div style="margin-top:14px;padding:14px 16px;border-left:3px solid #3b82f6;background:rgba(59,130,246,0.07);border-radius:0 10px 10px 0;">
+                          <div style="font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Zpětná vazba učitele</div>
+                          <div style="font-size:13px;color:var(--text-primary);line-height:1.6;white-space:pre-wrap;">${escapeHtml(_realFb)}</div>
+                      </div>` : '';
+                      return `<div style="margin-bottom:12px;">${buildSubmittedStepsHtml(_payload, isAutoSubmit, _stepDetailsJson)}${_teacherFbHtml}</div>`;
+                  }
 
                   // AI scénář — použij původní render
                   if (String(_payload).trimStart().startsWith('[AI_SCENARIO]')) {
@@ -2058,12 +2079,14 @@ async function renderScenarioDetail() {
     const isLatestArchived = latestAttempt && latestAttempt.status === "archived";
     // succeeded bez URL = skip lab byl ukončen, čeká na odevzdání
     const _labUrlGone = latestAttempt && !localStorage.getItem('lab_url_' + latestAttempt.attemptId) && !latestAttempt.guiUrl;
-    const isActiveRun = latestAttempt && !isLatestArchived && (
+    const isActiveRun = latestAttempt && !isLatestArchived && !isPaused && (
         ["queued", "provisioning", "running"].includes(latestAttempt.status)
         || (latestAttempt.status === "succeeded" && !_labUrlGone)
+        || (latestAttempt.status === "succeeded" && isNoLab && !["submitted", "evaluated"].includes(latestAttempt.learningStatus))
     );
     const isAttemptActiveOrDone = latestAttempt && !isLatestArchived && (
         isActiveRun
+        || isPaused
         || ["finished", "deleting", "stopped", "failed"].includes(latestAttempt.status)
         || (latestAttempt.status === "succeeded" && _labUrlGone)
         || latestAttempt.learningStatus === "submitted"
@@ -2072,6 +2095,7 @@ async function renderScenarioDetail() {
     const isSkipLab = savedUrl === 'skip';
     const canSubmit = latestAttempt
         && !isLatestArchived
+        && !isPaused
         && (["finished", "deleting", "stopped", "failed"].includes(latestAttempt.status) || (latestAttempt.status === "succeeded" && (_labUrlGone || isSkipLab)))
         && latestAttempt.learningStatus !== "submitted"
         && latestAttempt.learningStatus !== "evaluated"
@@ -2088,8 +2112,17 @@ async function renderScenarioDetail() {
             // Žádný pokus → student musí kliknout "Spustit prostředí"
             startBtn.style.display = "inline-block";
             startBtn.disabled = false;
-            startBtn.textContent = "Spustit prostředí";
+            startBtn.textContent = isNoLab ? "Spustit úlohu" : "Spustit prostředí";
             startBtn.onclick = () => startAiScenario();
+        } else if (isPaused) {
+            // Pozastavený pokus → zobraz "Pokračovat v učení"
+            startBtn.style.display = "inline-block";
+            startBtn.disabled = false;
+            startBtn.style.opacity = '';
+            startBtn.style.cursor = '';
+            startBtn.style.pointerEvents = 'auto';
+            startBtn.textContent = "Pokračovat v učení";
+            startBtn.onclick = () => resumePausedScenario();
         } else if (latestAttempt && latestAttempt.status !== 'archived') {
             // Aktivní pokus existuje → tlačítko schovej, AI se inicializuje sama
             startBtn.style.display = "none";
@@ -2100,7 +2133,7 @@ async function renderScenarioDetail() {
             startBtn.style.opacity = '';
             startBtn.style.cursor = '';
             startBtn.style.pointerEvents = 'auto';
-            startBtn.textContent = "Spustit prostředí";
+            startBtn.textContent = isNoLab ? "Spustit úlohu" : "Spustit prostředí";
             startBtn.onclick = () => startAiScenario();
         } else {
             // Limit pokusů vyčerpán
@@ -2114,7 +2147,7 @@ async function renderScenarioDetail() {
     } else {
         startBtn.style.display = "inline-block";
         startBtn.onclick = limitReached ? null : () => startScenario();
-        startBtn.textContent = limitReached ? "Počet pokusů vyčerpán" : "Spustit prostředí";
+        startBtn.textContent = limitReached ? "Počet pokusů vyčerpán" : (isNoLab ? "Spustit úlohu" : "Spustit prostředí");
         // AUTO_SUBMIT: po archivaci (evaluated+archived) rovnou povolit nový pokus
         const isAutoSubmitDone = isAutoSubmit && isLatestArchived
             && (latestAttempt?.learningStatus === 'evaluated' || latestAttempt?.learningStatus === 'archived');
@@ -2138,23 +2171,31 @@ async function renderScenarioDetail() {
         setTimeout(() => window.aiScenario.registerSubmitHook(), 0);
     }
 
-    const _submitShouldBeEnabled = canSubmit && !isLatestArchived && !isActiveRun && allStepsSeen;
-    
-    submitBtn.disabled = !_submitShouldBeEnabled;
-    if (!_submitShouldBeEnabled) {
-        submitBtn.style.backgroundColor = '#9ca3af';
-        submitBtn.style.borderColor = '#9ca3af';
-        submitBtn.style.color = '#ffffff';
-        submitBtn.style.opacity = '0.7';
-        submitBtn.style.cursor = 'not-allowed';
-        submitBtn.style.pointerEvents = 'none';
+    const isEduMode = (scenario.hints || '').includes('[TYPE:ai_education]');
+    const _submitShouldBeEnabled = (window._eduSummaryActive && isNoLab)
+        || (canSubmit && !isLatestArchived && (!isActiveRun || isNoLab) && allStepsSeen);
+
+    // Edu mode: skryj submit během učení, zobraz ho až v summary
+    if (isEduMode && !window._eduSummaryActive) {
+        submitBtn.style.display = 'none';
     } else {
-        submitBtn.style.backgroundColor = '';
-        submitBtn.style.borderColor = '';
-        submitBtn.style.color = '';
-        submitBtn.style.opacity = '1';
-        submitBtn.style.cursor = 'pointer';
-        submitBtn.style.pointerEvents = 'auto';
+        submitBtn.style.display = '';
+        submitBtn.disabled = !_submitShouldBeEnabled;
+        if (!_submitShouldBeEnabled) {
+            submitBtn.style.backgroundColor = '#9ca3af';
+            submitBtn.style.borderColor = '#9ca3af';
+            submitBtn.style.color = '#ffffff';
+            submitBtn.style.opacity = '0.7';
+            submitBtn.style.cursor = 'not-allowed';
+            submitBtn.style.pointerEvents = 'none';
+        } else {
+            submitBtn.style.backgroundColor = '';
+            submitBtn.style.borderColor = '';
+            submitBtn.style.color = '';
+            submitBtn.style.opacity = '1';
+            submitBtn.style.cursor = 'pointer';
+            submitBtn.style.pointerEvents = 'auto';
+        }
     }
 
     // Hook pro varování u běžných úkolů (pokud chybí odpověď)
@@ -2215,10 +2256,37 @@ async function renderScenarioDetail() {
         }, true);
     }
 
+    // Pozastavovací tlačítko — pouze pro aktivní adaptive+noLab pokusy
+    const pauseBtn = document.getElementById("pauseBtn");
+    if (pauseBtn) {
+        const _isEduScenario = (scenario.hints || '').includes('[TYPE:ai_education]');
+        const showPause = _isEduScenario && isNoLab && isActiveRun && !isPaused && latestAttempt?.learningStatus === 'started';
+        const _summaryCard = document.getElementById('ai-summary-card');
+        if (window._eduSummaryActive || _summaryCard) {
+            pauseBtn.style.display = "inline-block";
+            pauseBtn.disabled = false;
+            pauseBtn.style.opacity = '1';
+            pauseBtn.style.cursor = 'pointer';
+            pauseBtn.style.pointerEvents = 'auto';
+            pauseBtn.style.background = '#3b82f6';
+            pauseBtn.textContent = 'Uložit výsledky';
+            pauseBtn.onclick = () => submitLatestAttempt();
+        } else {
+            pauseBtn.style.display = showPause ? "inline-block" : "none";
+            pauseBtn.style.background = '';
+            pauseBtn.textContent = 'Pozastavit učení';
+            pauseBtn.onclick = () => pauseScenario();
+            pauseBtn.disabled = false;
+            pauseBtn.style.opacity = '';
+            pauseBtn.style.cursor = '';
+            pauseBtn.style.pointerEvents = 'auto';
+        }
+    }
+
     if (isActiveRun) {
         startBtn.style.display = "none";
         const stopBtn = document.getElementById("stopBtn");
-        stopBtn.style.display = "inline-block";
+        stopBtn.style.display = isNoLab ? "none" : "inline-block";
         
         const savedUrl = localStorage.getItem('lab_url_' + latestAttempt.attemptId) || latestAttempt.guiUrl;
         const isSkipLabReady = savedUrl === "skip";
@@ -2239,8 +2307,15 @@ async function renderScenarioDetail() {
         }
 
         // Tlačítko Vstoupit se ukáže POUZE, když je stav plně 'succeeded' a máme platnou URL
-        if (isLabReady) { 
-            window.currentLabUrl = savedUrl; 
+        if (isLabReady) {
+            window.currentLabUrl = savedUrl;
+            const _labMsg = document.getElementById("labReadyMsg");
+            if (_labMsg) {
+                const _os = scenario?.requiredOs || "";
+                _labMsg.textContent = _os === "ubuntu"
+                    ? "Ubuntu je připraven na nové kartě!"
+                    : "Kali Linux je připraven na nové kartě!";
+            }
             document.getElementById("labLinkContainer").style.display = savedUrl === "skip" ? "none" : "block";
             hideToast();
             if (!localStorage.getItem('lab_url_' + latestAttempt.attemptId)) {
@@ -2265,7 +2340,7 @@ async function renderScenarioDetail() {
     updateStatusAndFeedback(latestAttempt, sub, state, currentRunNumber, scenario);
 
     /// AI SCÉNÁŘ — inicializace pro adaptive zadání
-    if (isAdaptive && !isSubmittedOrEvaluated) {
+    if (isAdaptive && !isSubmittedOrEvaluated && !isPaused) {
         const attemptForAi = (latestAttempt && latestAttempt.status !== 'archived') ? latestAttempt : null;
         if (attemptForAi) {
             // Pokud AI container existoval, AI běží a attemptId je stejné → jen vrať DOM bez reinicializace (zabrání blikání)
@@ -2280,6 +2355,13 @@ async function renderScenarioDetail() {
                     detailElNow.appendChild(_aiContainerBackup);
                 }
             } else {
+                if ((scenario.hints || '').includes('[TYPE:ai_education]') && !window._resumeLoadingActive) {
+                    window._resumeLoadingActive = true;
+                    const _pBtn = document.getElementById("pauseBtn");
+                    const _sBtn = document.getElementById("submitBtn");
+                    if (_pBtn) { _pBtn.disabled = true; _pBtn.style.opacity = "0.5"; _pBtn.style.cursor = "not-allowed"; _pBtn.style.pointerEvents = "none"; }
+                    if (_sBtn) { _sBtn.disabled = true; _sBtn.style.opacity = "0.5"; _sBtn.style.cursor = "not-allowed"; _sBtn.style.pointerEvents = "none"; }
+                }
                 setTimeout(() => initAiScenarioSafe(scenario, attemptForAi, state, currentCourseId), 0);
             }
         }

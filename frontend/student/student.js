@@ -5,7 +5,7 @@ function stripStoredAiEvaluation(feedbackText) {
     .trim();
 }
 
-function buildSubmittedStepsHtml(contentPayload, isAutoSubmit = false) {
+function buildSubmittedStepsHtml(contentPayload, isAutoSubmit = false, stepDetailsJson = null) {
     const raw = String(contentPayload || "").replace(/\r\n/g, "\n").trim();
 
     if (!raw) {
@@ -84,6 +84,147 @@ function buildSubmittedStepsHtml(contentPayload, isAutoSubmit = false) {
 
     return headerHtml + tasksHtml;
     }
+    // ── AI vzdělávání ──────────────────────────────────────────────────────
+    if (raw.startsWith('[AI_EDUCATION]')) {
+    const totalMatch   = raw.match(/Celkové skóre:\s*[\d]+\s*\/\s*[\d]+\s*b\s*\((\d+)%\)/);
+    const pct          = totalMatch ? parseInt(totalMatch[1]) : null;
+    const threshMatch  = raw.match(/Práh:\s*(\d+)/);
+    const threshold    = threshMatch ? parseInt(threshMatch[1]) : 75;
+    const masteredCnt  = (raw.match(/— ZVLÁDNUTO/g) || []).length;
+    const skippedCnt   = (raw.match(/— PŘESKOČENO/g) || []).length;
+    const totalCnt     = (raw.match(/^Téma \d+:/mg) || []).length;
+    const overallCol   = pct === null ? '#6b7280' : pct >= threshold ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
+
+    // Parsuj step_details — seskup otázky per téma
+    let stepsByTopic = {};
+    try {
+        const _sd = JSON.parse(stepDetailsJson || '[]');
+        if (Array.isArray(_sd)) {
+            _sd.forEach(q => {
+                // topic může být přímo, nebo schovaný v task_text jako "[Název tématu] Otázka..."
+                let t = q.topic || '';
+                if (!t) {
+                    const _tm = (q.task_text || q.title || '').match(/^\[([^\]]+)\]/);
+                    if (_tm) t = _tm[1].trim();
+                }
+                if (!stepsByTopic[t]) stepsByTopic[t] = [];
+                stepsByTopic[t].push(q);
+            });
+        }
+    } catch {}
+
+    const topicRegex = /^Téma \d+:\s*(.*?)\s*— (ZVLÁDNUTO|PŘESKOČENO|NEDOKONČENO)(.*?)\nSkóre:\s*([0-9—]+%?)/mg;
+    const bars = [];
+    let tm;
+    while ((tm = topicRegex.exec(raw)) !== null) {
+        const name     = tm[1].trim();
+        const extra    = tm[3] || '';
+        const scoreRaw = tm[4].replace('%', '').trim();
+        const score    = scoreRaw === '—' ? null : parseInt(scoreRaw);
+        const col      = score === null ? '#6b7280' : score >= threshold ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444';
+        const barPct   = score !== null ? score : 0;
+        const repeats  = extra.match(/(\d+) opakování/);
+        const repeatNote = repeats ? ` · ${repeats[1]}× opakováno` : '';
+        const thresholdMarker = (barPct < threshold)
+        ? `<div style="position:absolute;top:0;left:${threshold}%;width:2px;height:100%;background:rgba(120,120,120,0.35);border-radius:1px;"></div>`
+        : '';
+
+        // Accordion s otázkami pro toto téma
+        const topicSteps = stepsByTopic[name] || [];
+        let accordionHtml = '';
+        if (topicSteps.length > 0) {
+            const verifyQ = parseInt((raw.match(/\[VERIFY_Q:(\d+)\]/) || [])[1] || '3', 10) || 3;
+            const qParts = [];
+            for (let j = 0; j < topicSteps.length; j++) {
+                const q = topicSteps[j];
+                const setNum = Math.floor(j / verifyQ) + 1;
+                if (j % verifyQ === 0) {
+                    const sadaQuestions = topicSteps.slice(j, j + verifyQ);
+                    const sadaEarned = sadaQuestions.reduce((s, x) => s + (x.points_earned || 0), 0);
+                    const sadaMax    = sadaQuestions.reduce((s, x) => s + (x.points_max || 100), 0);
+                    const sadaPct    = sadaMax > 0 ? Math.round(sadaEarned / sadaMax * 100) : 0;
+                    const sadaCol    = sadaPct >= 75 ? '#10b981' : sadaPct >= 50 ? '#f59e0b' : '#ef4444';
+                    const topMargin  = setNum > 1 ? '14px' : '0';
+                    qParts.push(`
+                    <div style="display:flex;align-items:center;gap:8px;margin:${topMargin} 0 8px;padding-bottom:4px;border-bottom:2px solid var(--border-color);">
+                      <span style="font-size:12px;font-weight:700;color:var(--text-primary);text-transform:uppercase;letter-spacing:0.5px;">${setNum}. sada ověřovacích otázek</span>
+                      <span style="font-size:12px;font-weight:700;color:${sadaCol};">${sadaPct} %</span>
+                    </div>`);
+                }
+                const qPct = q.points_max > 0 ? (q.points_earned / q.points_max) : null;
+                const qCol = qPct === null ? '#6b7280' : qPct >= 0.7 ? '#10b981' : qPct >= 0.4 ? '#f59e0b' : '#ef4444';
+                const qText = (q.task_text || '—').replace(/^\[[^\]]+\]\s*/, '');
+                qParts.push(`
+                <div style="border-left:3px solid ${qCol};padding:8px 12px;margin-bottom:8px;border-radius:0 6px 6px 0;background:${qCol}12;">
+                  <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:3px;">Otázka ${j + 1}</div>
+                  <div style="font-size:13px;color:var(--text-primary);font-weight:500;margin-bottom:6px;line-height:1.5;">${escapeHtml(qText)}</div>
+                  <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:2px;">Odpověď</div>
+                  <div style="font-size:13px;color:var(--text-primary);background:var(--bg-status);border-radius:5px;padding:6px 10px;margin-bottom:6px;white-space:pre-wrap;">${escapeHtml(q.answer || '—')}</div>
+                  <div style="font-size:11px;font-weight:700;color:#3b82f6;margin-bottom:2px;">Zpětná vazba</div>
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                    <div style="font-size:13px;color:var(--text-primary);border-left:2px solid #3b82f6;padding-left:8px;line-height:1.5;flex:1;">${escapeHtml(q.feedback || '—')}</div>
+                    <span style="font-size:12px;font-weight:bold;color:${qCol};white-space:nowrap;">${q.points_earned} / ${q.points_max} b</span>
+                  </div>
+                </div>`);
+            }
+            accordionHtml = `
+            <details style="margin-top:6px;border:1px solid var(--border-color);border-radius:8px;overflow:hidden;">
+              <summary style="cursor:pointer;font-size:12px;color:var(--text-muted);padding:8px 12px;list-style:none;display:flex;align-items:center;gap:5px;user-select:none;background:var(--bg-status);">
+                <span style="font-size:10px;">▶</span> ${topicSteps.length} otázek
+              </summary>
+              <div style="padding:12px;">
+                ${qParts.join('')}
+              </div>
+            </details>`;
+        }
+
+        bars.push(`
+        <div style="margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">
+            <span style="font-size:13px;color:var(--text-primary);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:65%;">${escapeHtml(name)}</span>
+            <span style="font-size:12px;color:${col};font-weight:bold;white-space:nowrap;flex-shrink:0;margin-left:8px;">
+              ${score !== null ? score + '%' : '—'}${repeatNote ? `<span style="font-weight:normal;color:var(--text-muted);font-size:11px;"> ${escapeHtml(repeatNote)}</span>` : ''}
+            </span>
+          </div>
+          <div style="background:var(--bg-status);border-radius:6px;height:10px;overflow:hidden;position:relative;">
+            <div style="background:${col};width:${barPct}%;height:100%;border-radius:6px;"></div>
+            ${thresholdMarker}
+          </div>
+          ${accordionHtml}
+        </div>`);
+    }
+
+    const statsRow = [
+        { label: 'Zvládnuto',    val: masteredCnt,                    col: '#10b981' },
+        { label: 'Nezvládnuto',  val: totalCnt - masteredCnt - skippedCnt, col: '#ef4444' },
+        { label: 'Přeskočeno',   val: skippedCnt,                     col: '#f59e0b' },
+    ].filter(s => s.val > 0).map(s =>
+        `<div style="text-align:center;flex:1;">
+          <div style="font-size:20px;font-weight:900;color:${s.col};">${s.val}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${s.label}</div>
+        </div>`
+    ).join('<div style="width:1px;background:var(--border-color);"></div>');
+
+    return `
+      <div style="border:1px solid var(--border-color);border-radius:12px;background:var(--bg-panel);overflow:hidden;">
+        <div style="padding:18px 20px;border-bottom:1px solid var(--border-color);display:flex;align-items:center;gap:16px;">
+          <div style="flex-shrink:0;width:60px;height:60px;border-radius:50%;border:3px solid ${overallCol};display:flex;align-items:center;justify-content:center;background:${overallCol}18;">
+            <span style="font-size:17px;font-weight:900;color:${overallCol};">${pct !== null ? pct + '%' : '—'}</span>
+          </div>
+          <div>
+            <div style="font-size:16px;font-weight:800;color:var(--text-primary);margin-bottom:3px;">Vzdělávání dokončeno</div>
+            <div style="font-size:13px;color:var(--text-muted);">${masteredCnt} z ${totalCnt} témat zvládnuto${skippedCnt > 0 ? ` · ${skippedCnt} přeskočeno` : ''}</div>
+          </div>
+        </div>
+        <div style="display:flex;border-bottom:1px solid var(--border-color);">${statsRow}</div>
+        <div style="padding:18px 20px 8px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:14px;">
+            Úspěšnost po tématech <span style="font-size:10px;font-weight:normal;">(čárka = práh ${threshold} %)</span>
+          </div>
+          ${bars.join('')}
+        </div>
+      </div>`;
+    }
     // ── Klasické kroky ─────────────────────────────────────────────────────
     const stepRegex = /(?:^|\n)Krok\s+(\d+):([\s\S]*?)(?=\nKrok\s+\d+:|$)/g;
     const blocks = [];
@@ -130,25 +271,8 @@ function showPageMessage(message, type = "info") {
     box.className = `page-message ${type}`;
     box.innerHTML = message; // Použití innerHTML pro případné skóre a formátování
     
-    const bgColor = type === "error" ? "var(--error, #ef4444)" : (type === "success" ? "var(--success, #10b981)" : "var(--primary, #1a3a6b)");
-    
-    box.style.cssText = `
-    display: block;
-    position: fixed;
-    top: 24px;
-    right: 24px;
-    z-index: 9999;
-    min-width: 300px;
-    max-width: 450px;
-    padding: 16px 20px;
-    border-radius: 8px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.25);
-    color: #ffffff;
-    background: ${bgColor};
-    border: 1px solid rgba(255,255,255,0.15);
-    transition: opacity 0.3s ease-in-out;
-    opacity: 1;
-    `;
+    box.style.display = 'block';
+    box.style.opacity = '1';
 
     if (window._pageMessageTimer) clearTimeout(window._pageMessageTimer);
     window._pageMessageTimer = setTimeout(() => {
@@ -177,9 +301,16 @@ function clearPolling() {
 
 function startLabCountdown(startTimeValue, timeLimitMinutes) {
     if (window._labCountdownInterval) clearInterval(window._labCountdownInterval);
-    
+
     const display = document.getElementById("labCountdownDisplay");
     if (!display) return;
+
+    // 0 = neomezeno — nezahajuj odpočet
+    if (!timeLimitMinutes) {
+        display.innerText = "Neomezeně";
+        display.style.color = "";
+        return;
+    }
 
     // Podpora pro textový datum z DB i přímé milisekundy z paměti
     const startTime = typeof startTimeValue === "number" ? startTimeValue : new Date(startTimeValue).getTime();
@@ -219,12 +350,14 @@ function startLabCountdown(startTimeValue, timeLimitMinutes) {
 function resetScenarioPanel(detailMessage = "Vyber úlohu ze seznamu.") {
     if (window._labCountdownInterval) clearInterval(window._labCountdownInterval);
     document.getElementById("scenarioDetail").innerHTML = detailMessage;
+    const _body = document.getElementById("scenarioDetailBody");
+    if (_body) _body.style.display = "none";
     document.getElementById("submissionNote").value = "";
 
     document.getElementById("startBtn").disabled = true;
     document.getElementById("submitBtn").disabled = true;
 
-    setAttemptStatus("Zatím bez pokusu.");
+    setAttemptStatus("");
     setFeedback("<div class='status-box'>Zatím není dostupná žádná zpětná vazba.</div>");
 
     // Resetuj AI modul při přepnutí kurzu/scénáře
@@ -239,19 +372,31 @@ function resetScenarioPanel(detailMessage = "Vyber úlohu ze seznamu.") {
 function buildLatestAttemptMap() {
     latestAttemptMap = {};
     currentAttempts.forEach((attempt) => {
-    const scenarioId = attempt.scenarioId;
-    if (!scenarioId) return;
+        const scenarioId = attempt.scenarioId;
+        if (!scenarioId) return;
 
-    if (!latestAttemptMap[scenarioId]) {
-        latestAttemptMap[scenarioId] = attempt;
-        return;
-    }
+        if (!latestAttemptMap[scenarioId]) {
+            latestAttemptMap[scenarioId] = attempt;
+            return;
+        }
 
-    const currentDate = new Date(attempt.createdAt || 0).getTime();
-    const savedDate = new Date(latestAttemptMap[scenarioId].createdAt || 0).getTime();
-    if (currentDate > savedDate) {
-        latestAttemptMap[scenarioId] = attempt;
-    }
+        const existing = latestAttemptMap[scenarioId];
+        const existingArchived = existing.status === 'archived';
+        const currentArchived = attempt.status === 'archived';
+
+        // Non-archived always beats archived
+        if (!currentArchived && existingArchived) { latestAttemptMap[scenarioId] = attempt; return; }
+        if (currentArchived && !existingArchived) return;
+
+        // Same archival status: prefer higher runNumber, then newer createdAt
+        const currentRun = Number(attempt.runNumber || 0);
+        const existingRun = Number(existing.runNumber || 0);
+        if (currentRun > existingRun) { latestAttemptMap[scenarioId] = attempt; return; }
+        if (currentRun === existingRun) {
+            const currentDate = new Date(attempt.createdAt || 0).getTime();
+            const savedDate = new Date(existing.createdAt || 0).getTime();
+            if (currentDate > savedDate) latestAttemptMap[scenarioId] = attempt;
+        }
     });
 }
 
@@ -272,7 +417,8 @@ function isAnyLabActive() {
         if (!activeStatesForLock.includes(atm.status)) continue;
         const sub = currentSubmissions.find(sub => sub.attemptId === atm.attemptId);
         const isSubmitted = (sub && (sub.status === "submitted" || sub.status === "evaluated"))
-            || atm.learningStatus === "submitted" || atm.learningStatus === "evaluated";
+            || atm.learningStatus === "submitted" || atm.learningStatus === "evaluated"
+            || atm.learningStatus === "paused";
         if (!isSubmitted) return true;
     }
     return false;
@@ -282,16 +428,11 @@ function updateMaterialsLockState() {
     const listEl = document.getElementById("studentMatList");
     if (!listEl) return;
     const isLocked = isAnyLabActive();
-    
-    const items = listEl.children;
-    for (let item of items) {
+    for (const item of listEl.children) {
+        item.classList.toggle("locked", isLocked);
         if (isLocked) {
-            item.style.opacity = "0.45";
-            item.style.cursor = "not-allowed";
             item.setAttribute("title", "Materiály jsou během plnění úkolu uzamčeny.");
         } else {
-            item.style.opacity = "1";
-            item.style.cursor = "pointer";
             item.removeAttribute("title");
         }
     }
@@ -300,36 +441,9 @@ function updateMaterialsLockState() {
 function updateCoursesLockState() {
     const isLocked = isAnyLabActive();
     document.querySelectorAll("#coursesList [data-id]").forEach(card => {
-        const isActive = card.dataset.id === currentCourseId;
-        if (isLocked && !isActive) {
-            card.style.opacity = "0.45";
-            card.style.pointerEvents = "none";
-            card.style.cursor = "not-allowed";
-            card.title = "Nelze přepnout kurz během plnění úkolu.";
-        } else {
-            card.style.opacity = "1";
-            card.style.pointerEvents = "auto";
-            card.style.cursor = "pointer";
-            card.title = "";
-        }
-    });
-}
-
-function updateCoursesLockState() {
-    const isLocked = isAnyLabActive();
-    document.querySelectorAll("#coursesList [data-id]").forEach(card => {
-        const isActive = card.dataset.id === currentCourseId;
-        if (isLocked && !isActive) {
-            card.style.opacity = "0.45";
-            card.style.pointerEvents = "none";
-            card.style.cursor = "not-allowed";
-            card.title = "Nelze přepnout kurz během plnění úkolu.";
-        } else {
-            card.style.opacity = "1";
-            card.style.pointerEvents = "auto";
-            card.style.cursor = "pointer";
-            card.title = "";
-        }
+        const shouldLock = isLocked && card.dataset.id !== currentCourseId;
+        card.classList.toggle("locked", shouldLock);
+        card.title = shouldLock ? "Nelze přepnout kurz během plnění úkolu." : "";
     });
 }
 
@@ -350,6 +464,7 @@ function computeStudentState(scenarioId) {
     
     if (latestAttempt.learningStatus === "evaluated") return "evaluated";
     if (latestAttempt.learningStatus === "submitted") return "submitted";
+    if (latestAttempt.learningStatus === "paused") return "paused";
     if (latestAttempt.learningStatus === "started" || latestAttempt.status === "running" || latestAttempt.status === "succeeded" || latestAttempt.status === "provisioning" || latestAttempt.status === "queued") return "started";
     if (["finished", "deleting", "stopped", "failed"].includes(latestAttempt.status)) return "pending_submission";
     

@@ -16,7 +16,7 @@ from app.storage import get_table_service, ensure_table, utc_now_iso
 router = APIRouter(tags=["Materials"])
 
 # Povolené typy souborů a max velikost (20 MB)
-ALLOWED_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "docx", "pptx", "mp4", "txt", "md"}
+ALLOWED_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "docx", "pptx", "mp4", "txt", "md", "xlsx", "csv"}
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
 
 def get_blob_service() -> BlobServiceClient:

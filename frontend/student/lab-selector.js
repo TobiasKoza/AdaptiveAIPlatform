@@ -4,7 +4,7 @@
 // Vypnout: window.LAB_SELECTOR_ENABLED = false (výchozí)
 // =============================================================
 
-window.LAB_SELECTOR_ENABLED = true;
+window.LAB_SELECTOR_ENABLED = false;
 
 window.showLabSelectorModal = async function(onConfirm) {
     let modal = document.getElementById('labSelectorModal');
@@ -60,7 +60,7 @@ window.showLabSelectorModal = async function(onConfirm) {
                     desc: `Custom image · ${t.baseImage === 'kali' ? 'Kali Linux' : 'Ubuntu'}${t.description ? ' · ' + t.description : ''}`,
                     labImage: t.baseImage === 'kali'
                         ? "adaptivekoza01.azurecr.io/adaptive-lab-kali:v3"
-                        : "ubuntu",
+                        : "adaptivekoza01.azurecr.io/adaptive-lab-kali:ubuntu-v1",
                     overrideTemplateId: t.templateId,
                 }));
         }
@@ -103,7 +103,7 @@ window.showLabSelectorModal = async function(onConfirm) {
                         Zrušit
                     </button>
                     <button onclick="window._labSelectorConfirm()"
-                        style="padding:8px 18px;border-radius:6px;border:none;background:#3b82f6;color:white;cursor:pointer;font-size:14px;font-weight:bold;">
+                        style="padding:8px 18px;border-radius:6px;border:none;background:var(--btn-primary);color:white;cursor:pointer;font-size:14px;font-weight:bold;">
                         Spustit
                     </button>
                 </div>

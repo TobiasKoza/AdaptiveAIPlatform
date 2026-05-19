@@ -1,27 +1,29 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="cs">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AdaptivePlatform - Učitel</title>
-  <link rel="stylesheet" href="styleNew.css" />
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="loginScreen" style="display: none; min-height: 100vh; justify-content: center; align-items: center; background: #e5e7eb;">
-    <div class="panel" style="width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
-      <h2 style="margin-top: 0; color: #1e3a8a;">AdaptivePlatform</h2>
-      <p class="muted" style="margin-bottom: 20px; font-size: 14px;">Přihlášení pro vyučující</p>
-      
-      <div style="text-align: left; margin-bottom: 15px;">
-        <label style="font-size: 13px; font-weight: bold;">E-mail:</label>
-        <input type="text" id="loginEmail" placeholder="ucitel@unob.cz" style="margin-top: 5px;" />
+  <div id="loginScreen" class="fullscreen-screen" style="display: none;">
+    <div class="panel login-panel">
+      <h2 class="login-title">AdaptivePlatform</h2>
+      <p class="muted login-subtitle">Přihlášení pro vyučující</p>
+
+      <div class="form-group">
+        <label class="form-label">E-mail:</label>
+        <input type="text" id="loginEmail" placeholder="ucitel@unob.cz" />
       </div>
-      <div style="text-align: left; margin-bottom: 20px;">
-        <label style="font-size: 13px; font-weight: bold;">Heslo:</label>
-        <div style="position: relative; margin-top: 5px;">
-          <input type="password" id="loginPassword" placeholder="••••••••" style="width: 100%; padding-right: 40px; box-sizing: border-box; margin: 0;" />
-          <span id="toggleLoginPasswordIcon" onclick="togglePasswordVisibility('loginPassword', 'toggleLoginPasswordIcon')" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #6b7280; user-select: none; display: flex; align-items: center;">
-            <svg id="eyeOpenSvg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 18px; height: 18px;">
+      <div class="form-group-lg">
+        <label class="form-label">Heslo:</label>
+        <div class="password-field">
+          <input type="password" id="loginPassword" placeholder="••••••••" style="padding-right: 40px; margin: 0;" />
+          <span id="toggleLoginPasswordIcon" class="password-toggle"
+                onclick="togglePasswordVisibility('loginPassword', 'toggleLoginPasswordIcon')">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.644C3.67 8.55 7.42 6 12 6c4.58 0 8.33 2.55 9.964 5.678a1.012 1.012 0 010 .644C20.33 15.45 16.58 18 12 18c-4.58 0-8.33-2.55-9.964-5.678z" />
               <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
@@ -29,38 +31,39 @@
         </div>
       </div>
 
-      <div style="text-align: left; margin-bottom: 20px;">
-        <label style="font-size: 13px; display: flex; align-items: center; cursor: pointer; color: #4b5563;">
-          <input type="checkbox" id="rememberMe" style="width: auto; margin: 0 8px 0 0; cursor: pointer;" checked />
+      <div class="form-group-lg">
+        <label class="checkbox-label">
+          <input type="checkbox" id="rememberMe" checked />
           Pamatovat přihlášení
         </label>
       </div>
-      
-      <button onclick="performLogin()" style="width: 100%; padding: 10px; font-size: 16px;">Přihlásit se</button>
-      <div id="loginError" style="color: red; margin-top: 15px; font-size: 13px;"></div>
+
+      <button onclick="performLogin()" class="btn-full">Přihlásit se</button>
+      <div id="loginError" class="form-error"></div>
     </div>
   </div>
 
-  <div id="forcePasswordScreen" style="display: none; min-height: 100vh; justify-content: center; align-items: center; background: #e5e7eb;">
-    <div class="panel" style="width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
-      <h2 style="margin-top: 0; color: #1e3a8a;">Změna hesla</h2>
-      <p class="muted" style="margin-bottom: 20px; font-size: 13px;">Toto je vaše první přihlášení. Z bezpečnostních důvodů si musíte změnit dočasné heslo.</p>
-      
-      <div style="text-align: left; margin-bottom: 20px;">
-        <label style="font-size: 13px; font-weight: bold;">Nové heslo:</label>
-        <div style="position: relative; margin-top: 5px;">
-          <input type="password" id="newMockPassword" placeholder="Zadejte nové heslo..." style="width: 100%; padding-right: 40px; box-sizing: border-box;" />
-          <span id="togglePasswordIcon" onclick="togglePasswordVisibility('newMockPassword', 'togglePasswordIcon')" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #6b7280; user-select: none; display: flex; align-items: center;">
-            <svg id="eyeOpenSvg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 18px; height: 18px;">
+  <div id="forcePasswordScreen" class="fullscreen-screen" style="display: none;">
+    <div class="panel login-panel">
+      <h2 class="login-title">Změna hesla</h2>
+      <p class="muted login-subtitle" style="font-size: 13px;">Toto je vaše první přihlášení. Z bezpečnostních důvodů si musíte změnit dočasné heslo.</p>
+
+      <div class="form-group-lg">
+        <label class="form-label">Nové heslo:</label>
+        <div class="password-field">
+          <input type="password" id="newMockPassword" placeholder="Zadejte nové heslo..." style="padding-right: 40px; margin: 0;" />
+          <span id="togglePasswordIcon" class="password-toggle"
+                onclick="togglePasswordVisibility('newMockPassword', 'togglePasswordIcon')">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.644C3.67 8.55 7.42 6 12 6c4.58 0 8.33 2.55 9.964 5.678a1.012 1.012 0 010 .644C20.33 15.45 16.58 18 12 18c-4.58 0-8.33-2.55-9.964-5.678z" />
               <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </span>
         </div>
       </div>
-      
-      <button onclick="changeMockPassword()" style="width: 100%; padding: 10px; font-size: 16px;">Uložit heslo a pokračovat</button>
-      <div id="pwdError" style="color: red; margin-top: 15px; font-size: 13px;"></div>
+
+      <button onclick="changeMockPassword()" class="btn-full">Uložit heslo a pokračovat</button>
+      <div id="pwdError" class="form-error"></div>
     </div>
   </div>
 
@@ -68,71 +71,20 @@
     <header>
       <h1>Učitelský Dashboard</h1>
       <div style="display: flex; align-items: center; gap: 15px;">
-        <span id="loggedInUserDisplay" style="font-weight: bold; font-size: 14px;"></span>
-        <button onclick="openThemeModal()" style="background: transparent; padding: 0; margin-left: 12px; cursor: pointer;" title="Nastavení vzhledu">
+        <span id="loggedInUserDisplay" class="header-user"></span>
+        <button onclick="openThemeModal()" class="btn-icon" title="Nastavení vzhledu">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><circle cx="4" cy="12" r="2"></circle>
             <line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><circle cx="12" cy="10" r="2"></circle>
             <line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><circle cx="20" cy="14" r="2"></circle>
           </svg>
         </button>
-        <button class="btn-small" style="background: #ef4444;" onclick="logout()">Odhlásit</button>
+        <button class="btn-small btn-danger" style="margin: 0;" onclick="logout()">Odhlásit</button>
       </div>
     </header>
 
     <div class="container">
       
-      <style>
-        .main-panel { display: none; } /* Skryje všechny panely ve výchozím stavu */
-
-        .task-row {
-          padding: 0 !important;
-          overflow: hidden;
-          background: var(--bg-status) !important;
-        }
-
-        .task-accordion-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 12px;
-          margin-bottom: 0 !important;
-          padding: 12px 14px;
-          background: var(--bg-panel);
-          cursor: pointer;
-          user-select: none;
-        }
-
-        .task-accordion-title {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          min-width: 0;
-          flex: 1;
-        }
-
-        .task-accordion-arrow {
-          color: var(--text-muted);
-          font-size: 12px;
-          line-height: 1;
-          transition: transform 0.2s ease;
-          flex-shrink: 0;
-        }
-
-        .task-row:not(.task-row-collapsed) .task-accordion-arrow {
-          transform: rotate(180deg);
-        }
-
-        .task-accordion-body {
-          padding: 12px 14px 14px 14px;
-          border-top: 1px solid var(--border-color);
-          background: var(--bg-status);
-        }
-
-        .task-row.task-row-collapsed .task-accordion-body {
-          display: none;
-        }
-      </style>
       <div class="main-nav-tabs">
         <button class="main-nav-tab" onclick="switchMainAppTab('identity', this)">Uživatelé a skupiny</button>
         <button class="main-nav-tab" onclick="switchMainAppTab('courses', this)">Správa kurzů</button>
@@ -142,20 +94,20 @@
         <button class="main-nav-tab" onclick="switchMainAppTab('labtemplates', this)">Lab Images - zatím nefunkční</button>
       </div>
 
-    <div class="panel main-panel" id="panel-identity" style="border: 2px solid #2563eb;">
+    <div class="panel main-panel panel-accent" id="panel-identity">
       <h2>Správa identit a skupin</h2>
       
       <div style="display: flex; gap: 20px;">
         <div style="flex: 2; padding-right: 20px; border-right: 1px solid #e5e7eb;">
           <h3>Nový uživatel</h3>
           <div class="row">
-            <div style="flex: 1;">
+            <div class="grow-1">
               <label>Emaily (oddělené čárkou nebo novým řádkem):</label>
               <textarea id="newEmail" rows="3" placeholder="student1@unob.cz, student2@unob.cz&#10;student3@unob.cz" style="width: 100%; margin-top: 5px; padding: 8px; border-radius: 6px; border: 1px solid #d1d5db; box-sizing: border-box; font-family: inherit; resize: vertical;"></textarea>
             </div>
           </div>
           <div class="row">
-            <div style="flex: 1;">
+            <div class="grow-1">
               <label>Globální role:</label>
               <select id="newRole">
                 <option value="student">Student</option>
@@ -164,7 +116,7 @@
             </div>
           </div>
           <div class="row" style="align-items: flex-start;">
-            <div style="flex: 1;">
+            <div class="grow-1">
               <label>Přiřadit do skupin:</label>
               <div class="input-wrapper">
                 <input type="text" id="groupSearchInput" placeholder="Klikněte pro výběr..." autocomplete="off"
@@ -176,7 +128,7 @@
                 </div>
               </div>
             </div>
-            <div style="flex: 1;">
+            <div class="grow-1">
               <label>Přiřadit kurzy:</label>
               <div class="input-wrapper">
                 <input type="text" id="courseSearchInput" placeholder="Klikněte pro výběr..." autocomplete="off"
@@ -193,7 +145,7 @@
           <div id="userStatus" style="font-weight: bold; margin-top: 10px;"></div>
         </div>
 
-        <div style="flex: 1;">
+        <div class="grow-1">
           <h3>Nová skupina</h3>
           <label>Název:</label>
           <input type="text" id="newGroupTitle" placeholder="např.25_5KB" />
@@ -203,7 +155,7 @@
       </div>
 
       <div style="display: flex; gap: 20px; margin-top: 20px;">
-        <div style="flex: 2;">
+        <div class="grow-2">
           <div style="display: flex; justify-content: space-between; align-items: center;">
               <h3>Existující uživatelé</h3>
               <input type="text" id="userSearchInput" placeholder="Hledat jméno, email, skupinu..." onkeyup="filterUsers()" style="width: 250px; margin: 0 10px 0 auto; padding: 6px; border-radius: 6px; border: 1px solid #d1d5db;" />
@@ -216,7 +168,7 @@
             </table>
           </div>
         </div>
-        <div style="flex: 1;">
+        <div class="grow-1">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <h3>Existující skupiny</h3>
             <button class="btn-small" onclick="loadGroups()">Obnovit skupiny</button>
@@ -230,7 +182,7 @@
         </div>
       </div>
     </div>
-    <div class="panel main-panel" id="panel-courses" style="border: 2px solid #2563eb;">
+    <div class="panel main-panel panel-accent" id="panel-courses">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <h2>Správa kurzů</h2>
         <input type="text" id="courseTableSearch" placeholder="Hledat v tabulce..." onkeyup="filterCourses()" style="width: 250px; margin: 0; padding: 6px; border-radius: 6px; border: 1px solid #d1d5db;" />
@@ -246,17 +198,16 @@
         <textarea id="courseDescription" rows="2" placeholder="Krátký popis kurzu..." style="margin: 0; resize: vertical;"></textarea>
 
         <label style="margin-top: 12px; display: block;">Studijní materiály (volitelné):</label>
-        <div id="newCourseDropZone"
-            style="border:2px dashed var(--border-color); border-radius:8px; padding:22px 16px; text-align:center; color:var(--text-muted); font-size:13px; cursor:pointer; transition:background 0.2s, border-color 0.2s; margin-top:4px; user-select:none;"
-            ondragover="event.preventDefault(); this.style.background='var(--bg-card-hover)'; this.style.borderColor='var(--btn-primary)';"
-            ondragleave="this.style.background=''; this.style.borderColor='var(--border-color)';"
-            ondrop="handleNewCourseMatDrop(event); this.style.background=''; this.style.borderColor='var(--border-color)';"
+        <div id="newCourseDropZone" class="drop-zone"
+            ondragover="event.preventDefault(); this.classList.add('drag-over');"
+            ondragleave="this.classList.remove('drag-over');"
+            ondrop="handleNewCourseMatDrop(event); this.classList.remove('drag-over');"
             onclick="document.getElementById('newCourseMatInput').click()">
-            <div style="margin-bottom:8px; pointer-events:none;">
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><polyline points="9 14 12 17 15 14"/></svg>
+            <div class="drop-zone-icon">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--btn-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><polyline points="9 14 12 17 15 14"/></svg>
             </div>
-            <div style="font-weight:bold; color:var(--text-primary); margin-bottom:4px; pointer-events:none;">Přetáhněte soubory sem nebo klikněte pro výběr</div>
-            <div style="font-size:11px; pointer-events:none;">PDF, DOCX, PPTX, PNG, JPG, MP4, TXT, MD · max 20 MB</div>
+            <div class="drop-zone-title">Přetáhněte soubory sem nebo klikněte pro výběr</div>
+            <div class="drop-zone-hint">PDF, DOCX, PPTX, PNG, JPG, MP4, TXT, MD · max 20 MB</div>
         </div>
         <input type="file" id="newCourseMatInput" multiple accept=".pdf,.docx,.pptx,.png,.jpg,.jpeg,.mp4,.txt,.md"
             style="display:none;" onchange="handleNewCourseMatSelect(event)" />
@@ -282,11 +233,11 @@
       </div>
     </div>
 
-    <div class="panel main-panel" id="panel-scenario-list" style="border: 2px solid #2563eb;">
+    <div class="panel main-panel panel-accent" id="panel-scenario-list">
       <h2>Přehled existujících zadání v kurzu</h2>
       <div class="row" style="align-items: center; margin-bottom: 15px;">
-        <div style="flex: 2;"><select id="listScenariosCourseSelect" style="margin: 0;"><option value="">Načítám kurzy...</option></select></div>
-        <div style="flex: 1;"><button onclick="loadScenarios()" style="margin: 0;">Načíst zadání z kurzu</button></div>
+        <div class="grow-2"><select id="listScenariosCourseSelect" style="margin: 0;"><option value="">Načítám kurzy...</option></select></div>
+        <div class="grow-1"><button onclick="loadScenarios()" style="margin: 0;">Načíst zadání z kurzu</button></div>
       </div>
 
       <div class="table-scroll-wrapper" style="max-height: 320px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px;">
@@ -309,20 +260,20 @@
       </div>
     </div>
     
-    <div class="panel main-panel" id="panel-scenario-edit" style="display:none; border: 2px solid #2563eb;">
+    <div class="panel main-panel panel-accent" id="panel-scenario-edit" style="display:none;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
         <h2 style="margin:0;">Upravit zadání:</h2>
         <span onclick="document.getElementById('panel-scenario-edit').style.display='none'" style="cursor:pointer; font-size:26px; color:#6b7280; line-height:1;">&times;</span>
       </div>
 
       <div class="row" style="align-items:flex-start;">
-        <div style="flex:1;">
+        <div class="grow-1">
           <label>Kurz:</label>
           <select id="edit_scenarioCourseSelect" disabled></select>
         </div>
-        <div style="flex:1;">
+        <div class="grow-1">
           <label>Typ zadání:</label>
-          <select id="edit_scenarioTaskType">
+          <select id="edit_scenarioTaskType" onchange="window.onEditScenarioTaskTypeChange()">
             <option value="practice">Cvičení</option>
             <option value="exam">Zkouška</option>
             <option value="credit">Klasifikovaný zápočet</option>
@@ -331,17 +282,27 @@
         </div>
       </div>
 
+      <div style="margin-top:10px;">
+        <label style="display:block; margin-bottom:6px;">Podmínky pro odemčení zadání <span class="muted-sm">(volitelné)</span>:</label>
+        <div id="prereqsEditContainer"></div>
+        <button type="button" class="btn-small" style="margin-top:4px; font-size:12px; padding:3px 10px;" onclick="window.addPrereqRow('prereqsEditContainer', document.getElementById('prereqsEditContainer').dataset.courseId, null, document.getElementById('prereqsEditContainer').dataset.excludeId)">+ Přidat podmínku</button>
+      </div>
+
       <div class="row" style="margin-top:10px;">
-        <div style="flex:2;"><label>Název zadání:</label><input type="text" id="edit_scenarioTitle" /></div>
-        <div style="flex:1;">
-          <label>Operační systém pro řešení:</label>
-          <select id="edit_scenarioRequiredOs"><option value="kali">Kali Linux</option></select>
+        <div class="grow-2"><label>Název zadání:</label><input type="text" id="edit_scenarioTitle" /></div>
+        <div class="grow-1">
+          <label>Virutální prostředi:</label>
+          <select id="edit_scenarioRequiredOs">
+            <option value="kali">Kali Linux (GUI)</option>
+            <option value="ubuntu">Ubuntu (GUI)</option>
+            <option value="none">Žádné virtuální prostředí</option>
+          </select>
         </div>
       </div>
 
-      <div class="row" style="display:block; margin-top:10px;">
+      <div class="row block-mt">
         <label><strong>Popis úkolu:</strong></label>
-        <textarea id="edit_scenarioDescription" rows="2" style="width:100%; margin-top:5px; padding:10px; border-radius:6px; border:1px solid #d1d5db;"></textarea>
+        <textarea id="edit_scenarioDescription" rows="2" class="textarea-std"></textarea>
       </div>
 
       <div class="row" style="display:block; margin-top:15px;">
@@ -379,20 +340,20 @@
                   <label style="font-size:11px; color:var(--text-muted); font-weight:bold; display:block; margin-bottom:4px;">Zadání úkolu:</label>
                   <textarea class="task-input" rows="2" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background: var(--bg-panel); color: var(--text-primary);" placeholder="Popište, co má student udělat..."></textarea>
                   
-                  <div class="task-rubric-wrapper" style="display: none; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-color);">
+                  <div class="task-rubric-wrapper" class="task-section-hidden">
                     <label class="rubric-label" style="font-size:11px; color:var(--text-primary); font-weight:bold;">Kritéria bodování pro AI:</label>
                     <textarea class="task-rubric" rows="2" style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); box-sizing: border-box; background: var(--bg-panel); color: var(--text-primary);" placeholder="Napište pravidla pro AI hodnocení tohoto úkolu..."></textarea>
                   </div>
 
-                  <div class="task-solution-text-wrapper" style="display: none; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-color);">
+                  <div class="task-solution-text-wrapper" class="task-section-hidden">
                     <label class="task-sol-text-label" style="font-size:11px; color:var(--text-primary); font-weight:bold;">Správné řešení (pro učitele / AI):</label>
                     <textarea class="task-solution-text" rows="2" style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); box-sizing: border-box; background: var(--bg-status); color: var(--text-primary);" placeholder="Jak vypadá správné řešení tohoto úkolu..."></textarea>
                   </div>
 
-                  <div class="task-config-wrapper" style="display: block; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-color);">
+                  <div class="task-config-wrapper" class="task-section">
                     <div class="task-type-config-container"></div>
 
-                    <div class="task-hints-container" style="margin-top:8px; padding-top:8px; border-top:1px dashed var(--border-color);">
+                    <div class="task-hints-container" class="task-section">
                       <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px; flex-wrap:wrap;">
                         <label style="font-size:11px; color:var(--text-muted); font-weight:bold; white-space:nowrap;">Body za úkol:</label>
                         <input type="number" class="task-points" min="0" max="100" value="0" style="width:48px; padding:4px; border-radius:4px; border:1px solid var(--border-color); background:var(--bg-panel); color:var(--text-primary); font-size:12px; text-align:center;" />
@@ -446,7 +407,7 @@
         <div id="edit_globalExpectedOutputsWrapper" style="display: none;"></div>
 
       <div class="row" style="margin-top:15px; align-items:flex-start;">
-        <div style="flex:1;">
+        <div class="grow-1">
           <label>Viditelné pro (Skupiny):</label>
           <div style="position:relative; margin-top:5px; margin-bottom:0; width:100%;">
             <div onclick="toggleMultiSelect('edit_scenarioTargetGroupList')" style="padding:8px; border:1px solid #d1d5db; border-radius:6px; background:#fff; cursor:pointer; display:flex; justify-content:space-between; align-items:center; font-size:13px;">
@@ -456,7 +417,7 @@
             <div id="edit_scenarioTargetGroupList" style="display:none; position:absolute; top:100%; left:0; right:0; z-index:50; max-height:150px; overflow-y:auto; border:1px solid #d1d5db; border-radius:6px; background:#fff; box-shadow:0 4px 6px rgba(0,0,0,0.1); margin-top:4px; padding:2px 0;"></div>
           </div>
         </div>
-        <div style="flex:1;"><label>Termín odevzdání:</label><input type="datetime-local" id="edit_scenarioDeadline" /></div>
+        <div class="grow-1"><label>Termín odevzdání:</label><input type="datetime-local" id="edit_scenarioDeadline" /></div>
         <div style="flex:1.5;">
           <label>Režim pokusů:</label>
           <div style="display:flex; gap:8px;">
@@ -483,72 +444,83 @@
           <label>Maximum bodů:</label>
           <input type="number" id="edit_scenarioMaxPoints" value="10" min="1" />
         </div>
-        <div style="flex:1;">
+        <div class="grow-1">
           <label>Čas na lab (minuty):</label>
           <input type="number" id="edit_scenarioTimeLimit" value="60" min="5" step="5" />
         </div>
         <div id="edit_scenarioAutoSubmitWrapper" style="flex:1; display:none; align-items:center; gap:8px; padding-top:18px;">
-          <input type="checkbox" id="edit_scenarioAutoSubmit" onchange="syncEditAutoSubmitAiLock()" style="width:16px; height:16px; accent-color:var(--primary,#3b82f6); cursor:pointer; flex-shrink:0;">
-          <label for="edit_scenarioAutoSubmit" style="cursor:pointer; font-weight:500; margin:0; line-height:1.3;">Bez hodnocení učitele
-            <span style="display:block; font-size:11px; color:var(--text-muted); font-weight:normal;">Body se uloží automaticky, student může začit další pokus</span>
+          <input type="checkbox" id="edit_scenarioAutoSubmit" onchange="syncEditAutoSubmitAiLock()" class="cb-sm">
+          <label for="edit_scenarioAutoSubmit" class="label-click">Bez hodnocení učitele
+            <span class="sub-label">Body se uloží automaticky, student může začit další pokus</span>
           </label>
         </div>
         <div id="edit_scenarioPassThresholdWrapper" style="flex:1; display:none; align-items:center; gap:8px; padding-top:18px;">
-          <input type="checkbox" id="edit_scenarioPassThresholdCb" onchange="togglePassThreshold('edit_scenarioPassThresholdInput')" style="width:16px; height:16px; accent-color:var(--primary,#3b82f6); cursor:pointer; flex-shrink:0;">
-          <label for="edit_scenarioPassThresholdCb" style="cursor:pointer; font-weight:500; margin:0; line-height:1.3;">Minimální úspěšnost
-            <span style="display:block; font-size:11px; color:var(--text-muted); font-weight:normal;">Pokud nezaškrtnuto → klasická známka od učitele</span>
+          <input type="checkbox" id="edit_scenarioPassThresholdCb" onchange="togglePassThreshold('edit_scenarioPassThresholdInput')" class="cb-sm">
+          <label for="edit_scenarioPassThresholdCb" class="label-click">Minimální úspěšnost
+            <span class="sub-label">Pokud nezaškrtnuto → klasická známka od učitele</span>
           </label>
           <div id="edit_scenarioPassThresholdInput" style="display:none; align-items:center; gap:4px; margin-left:8px;">
             <input type="number" id="edit_scenarioPassThreshold" value="70" min="1" max="100" style="width:60px; padding:4px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-status); color:var(--text-primary); font-size:13px;">
             <span style="font-size:13px; color:var(--text-muted);">%</span>
           </div>
         </div>
-        <div style="flex:1;">
+        <div class="grow-1">
           <button id="btnSaveEditedScenario" onclick="saveEditedScenario()"style="width:100%; margin-bottom:0; background:#f59e0b;">Uložit změny</button>
         </div>
       </div>
       <div id="edit_scenarioStatus" style="font-weight:bold; margin-top:5px;"></div>
     </div>
 
-    <div class="panel main-panel" id="panel-ai-edit" style="display:none; border: 2px solid #0369a1;">
+    <div class="panel main-panel panel-accent" id="panel-ai-edit" style="display:none;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
         <h2 style="margin:0;">Upravit AI zadání:</h2>
         <span onclick="document.getElementById('panel-ai-edit').style.display='none'" style="cursor:pointer; font-size:26px; color:#6b7280; line-height:1;">&times;</span>
       </div>
-      <div class="row">
-        <div style="flex:2;"><label>Název AI zadání:</label><input type="text" id="aiEdit_title" /></div>
-        <div style="flex:1;"><label>OS:</label><select id="aiEdit_os"><option value="kali" selected>Kali Linux</option></select></div>
-        <div style="flex:1;"><label>Počáteční obtížnost:</label>
+      <div class="row" id="aiEditEx_row1">
+        <div class="grow-2"><label>Název AI zadání:</label><input type="text" id="aiEdit_title" /></div>
+        <div class="grow-1"><label>OS:</label><select id="aiEdit_os">
+            <option value="kali" selected>Kali Linux (GUI)</option>
+            <option value="ubuntu">Ubuntu (GUI)</option>
+            <option value="none">Žádné virtuální prostředí</option>
+          </select></div>
+        <div class="grow-1"><label>Počáteční obtížnost:</label>
           <select id="aiEdit_difficulty">
             <option value="easy">Lehká</option>
             <option value="medium" selected>Střední</option>
             <option value="hard">Těžká</option>
           </select>
         </div>
-        <div style="flex:1;"><label>Adaptivita:</label>
+        <div class="grow-1"><label>Adaptivita:</label>
           <select id="aiEdit_adaptive">
             <option value="true" selected>Zapnuta</option>
             <option value="false">Vypnuta (fixní)</option>
           </select>
         </div>
       </div>
-      <div class="row" style="margin-top:10px;">
-        <div style="flex:2;"><label>Témata / tagy <span style="font-weight:normal; color:#6b7280;">(oddělte čárkou)</span>:</label><input type="text" id="aiEdit_tags" /></div>
-        <div style="flex:2;"><label>Povolené nástroje <span style="font-weight:normal; color:#6b7280;">(oddělte čárkou)</span>:</label><input type="text" id="aiEdit_tools" /></div>
+
+      <div style="margin-top:10px;">
+        <label style="display:block; margin-bottom:6px;">Podmínky pro odemčení zadání <span class="muted-sm">(volitelné)</span>:</label>
+        <div id="prereqsAiEditContainer"></div>
+        <button type="button" class="btn-small" style="margin-top:4px; font-size:12px; padding:3px 10px;" onclick="window.addPrereqRow('prereqsAiEditContainer', document.getElementById('prereqsAiEditContainer').dataset.courseId, null, document.getElementById('prereqsAiEditContainer').dataset.excludeId)">+ Přidat podmínku</button>
       </div>
-      <div class="row" style="display:block; margin-top:10px;">
+
+      <div class="row" id="aiEditEx_row2" style="margin-top:10px;">
+        <div class="grow-2"><label>Témata / tagy <span class="muted-sm">(oddělte čárkou)</span>:</label><input type="text" id="aiEdit_tags" /></div>
+        <div class="grow-2"><label>Povolené nástroje <span class="muted-sm">(oddělte čárkou)</span>:</label><input type="text" id="aiEdit_tools" /></div>
+      </div>
+      <div class="row block-mt">
         <label><strong>Obecný popis:</strong></label>
-        <textarea id="aiEdit_description" rows="2" style="width:100%; margin-top:5px; padding:10px; border-radius:6px; border:1px solid #d1d5db;"></textarea>
+        <textarea id="aiEdit_description" rows="2" class="textarea-std"></textarea>
       </div>
-      <div class="row" style="display:block; margin-top:10px;">
+      <div class="row block-mt">
         <label><strong>Vzdělávací cíl:</strong></label>
-        <textarea id="aiEdit_goal" rows="3" style="width:100%; margin-top:5px; padding:10px; border-radius:6px; border:1px solid #d1d5db;"></textarea>
+        <textarea id="aiEdit_goal" rows="3" class="textarea-std"></textarea>
       </div>
-      <div class="row" style="display:block; margin-top:10px;">
+      <div class="row block-mt" id="aiEditEx_qtypes">
         <div style="display:flex; align-items:center; justify-content:flex-start; margin-bottom:6px;">
           <strong style="margin-right:12px;">Povolené formáty otázek:</strong>
           <label style="font-weight:normal; cursor:pointer; display:flex !important; align-items:center !important; gap:8px !important; font-size:13px; color:var(--text-muted); margin:0; white-space:nowrap; padding:0;">
-            <input type="checkbox" id="aiEdit_qtypesRotate" checked onchange="window.toggleQtypesRotate('edit')" style="margin:0 !important; padding:0 !important; width:16px !important; height:16px !important; flex-shrink:0 !important;"> AI je bude střídat
+            <input type="checkbox" id="aiEdit_qtypesRotate" checked onchange="window.toggleQtypesRotate('edit')" class="cb-sm"> AI je bude střídat
           </label>
         </div>
         <div style="position: relative; width: 350px; max-width: 100%;">
@@ -557,83 +529,126 @@
             <span style="font-size: 10px; color: var(--text-muted); flex-shrink:0; margin-left:10px;">▼</span>
           </div>
           <div id="aiEdit_qtypesList" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 50; max-height: 180px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-panel); box-shadow: 0 4px 12px rgba(0,0,0,0.15); margin-top: 4px; padding: 0;">
-            <label style="display:flex !important; justify-content:space-between !important; align-items:center !important; cursor:pointer; font-size:13px; color:var(--text-primary); font-weight:normal; margin:0; padding:8px 12px; border-bottom:1px solid var(--border-color);" onmouseover="this.style.background='var(--bg-status)'" onmouseout="this.style.background='transparent'">
-              <div style="display:flex; align-items:center; gap:10px; flex-grow:1;"><input type="checkbox" class="qtype-cb-edit" value="otevřená odpověď" checked onchange="window.updateQtypesLabel('edit')" style="margin:0 !important; padding:0 !important; width:16px !important; height:16px !important; flex-shrink:0 !important;"> <span>Otevřená odpověď</span></div>
-              <input type="number" class="qtype-count-edit" value="1" min="1" step="1" onchange="window.recalcQtypesTotal('edit')" onclick="event.stopPropagation()" style="display:none; width:45px; padding:2px 4px; font-size:12px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-input); color:var(--text-primary); margin:0;">
+            <label class="task-acc-row">
+              <div class="qtype-opt-row"><input type="checkbox" class="qtype-cb-edit cb-sm" value="otevřená odpověď" checked onchange="window.updateQtypesLabel('edit')" > <span>Otevřená odpověď</span></div>
+              <input type="number" class="qtype-count-edit qtype-count" value="1" min="1" step="1" onchange="window.recalcQtypesTotal('edit')" onclick="event.stopPropagation()"  style="display:none;">
             </label>
-            <label style="display:flex !important; justify-content:space-between !important; align-items:center !important; cursor:pointer; font-size:13px; color:var(--text-primary); font-weight:normal; margin:0; padding:8px 12px; border-bottom:1px solid var(--border-color);" onmouseover="this.style.background='var(--bg-status)'" onmouseout="this.style.background='transparent'">
-              <div style="display:flex; align-items:center; gap:10px; flex-grow:1;"><input type="checkbox" class="qtype-cb-edit" value="A/B/C/D" onchange="window.updateQtypesLabel('edit')" style="margin:0 !important; padding:0 !important; width:16px !important; height:16px !important; flex-shrink:0 !important;"> <span>Výběr z možností (A/B/C/D)</span></div>
-              <input type="number" class="qtype-count-edit" value="1" min="1" step="1" onchange="window.recalcQtypesTotal('edit')" onclick="event.stopPropagation()" style="display:none; width:45px; padding:2px 4px; font-size:12px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-input); color:var(--text-primary); margin:0;">
+            <label class="task-acc-row">
+              <div class="qtype-opt-row"><input type="checkbox" class="qtype-cb-edit cb-sm" value="A/B/C/D" onchange="window.updateQtypesLabel('edit')" > <span>Výběr z možností (A/B/C/D)</span></div>
+              <input type="number" class="qtype-count-edit qtype-count" value="1" min="1" step="1" onchange="window.recalcQtypesTotal('edit')" onclick="event.stopPropagation()"  style="display:none;">
             </label>
-            <label style="display:flex !important; justify-content:space-between !important; align-items:center !important; cursor:pointer; font-size:13px; color:var(--text-primary); font-weight:normal; margin:0; padding:8px 12px; border-bottom:1px solid var(--border-color);" onmouseover="this.style.background='var(--bg-status)'" onmouseout="this.style.background='transparent'">
-              <div style="display:flex; align-items:center; gap:10px; flex-grow:1;"><input type="checkbox" class="qtype-cb-edit" value="doplňování slov" onchange="window.updateQtypesLabel('edit')" style="margin:0 !important; padding:0 !important; width:16px !important; height:16px !important; flex-shrink:0 !important;"> <span>Doplňování chybějících slov</span></div>
-              <input type="number" class="qtype-count-edit" value="1" min="1" step="1" onchange="window.recalcQtypesTotal('edit')" onclick="event.stopPropagation()" style="display:none; width:45px; padding:2px 4px; font-size:12px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-input); color:var(--text-primary); margin:0;">
+            <label class="task-acc-row">
+              <div class="qtype-opt-row"><input type="checkbox" class="qtype-cb-edit cb-sm" value="doplňování slov" onchange="window.updateQtypesLabel('edit')" > <span>Doplňování chybějících slov</span></div>
+              <input type="number" class="qtype-count-edit qtype-count" value="1" min="1" step="1" onchange="window.recalcQtypesTotal('edit')" onclick="event.stopPropagation()"  style="display:none;">
             </label>
-            <label style="display:flex !important; justify-content:space-between !important; align-items:center !important; cursor:pointer; font-size:13px; color:var(--text-primary); font-weight:normal; margin:0; padding:8px 12px; border-bottom:1px solid var(--border-color);" onmouseover="this.style.background='var(--bg-status)'" onmouseout="this.style.background='transparent'">
-              <div style="display:flex; align-items:center; gap:10px; flex-grow:1;"><input type="checkbox" class="qtype-cb-edit" value="Pravda/Nepravda" onchange="window.updateQtypesLabel('edit')" style="margin:0 !important; padding:0 !important; width:16px !important; height:16px !important; flex-shrink:0 !important;"> <span>Pravda / Nepravda</span></div>
-              <input type="number" class="qtype-count-edit" value="1" min="1" step="1" onchange="window.recalcQtypesTotal('edit')" onclick="event.stopPropagation()" style="display:none; width:45px; padding:2px 4px; font-size:12px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-input); color:var(--text-primary); margin:0;">
+            <label class="task-acc-row">
+              <div class="qtype-opt-row"><input type="checkbox" class="qtype-cb-edit cb-sm" value="Pravda/Nepravda" onchange="window.updateQtypesLabel('edit')" > <span>Pravda / Nepravda</span></div>
+              <input type="number" class="qtype-count-edit qtype-count" value="1" min="1" step="1" onchange="window.recalcQtypesTotal('edit')" onclick="event.stopPropagation()"  style="display:none;">
             </label>
-            <label style="display:flex !important; justify-content:space-between !important; align-items:center !important; cursor:pointer; font-size:13px; color:var(--text-primary); font-weight:normal; margin:0; padding:8px 12px;" onmouseover="this.style.background='var(--bg-status)'" onmouseout="this.style.background='transparent'">
-              <div style="display:flex; align-items:center; gap:10px; flex-grow:1;"><input type="checkbox" class="qtype-cb-edit" value="oprava chyby" onchange="window.updateQtypesLabel('edit')" style="margin:0 !important; padding:0 !important; width:16px !important; height:16px !important; flex-shrink:0 !important;"> <span>Analýza a oprava chyby v kódu</span></div>
-              <input type="number" class="qtype-count-edit" value="1" min="1" step="1" onchange="window.recalcQtypesTotal('edit')" onclick="event.stopPropagation()" style="display:none; width:45px; padding:2px 4px; font-size:12px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-input); color:var(--text-primary); margin:0;">
+            <label class="task-acc-row">
+              <div class="qtype-opt-row"><input type="checkbox" class="qtype-cb-edit cb-sm" value="oprava chyby" onchange="window.updateQtypesLabel('edit')" > <span>Analýza a oprava chyby v kódu</span></div>
+              <input type="number" class="qtype-count-edit qtype-count" value="1" min="1" step="1" onchange="window.recalcQtypesTotal('edit')" onclick="event.stopPropagation()"  style="display:none;">
             </label>
           </div>
         </div>
       </div>
-      <div class="row" style="display:block; margin-top:10px;">
+      <div class="row block-mt">
         <label><strong>Master prompt pro AI:</strong></label>
         <div id="aiEditPersonaTemplateButtons" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; margin-top:6px;"></div>
-        <textarea id="aiEdit_persona" rows="3" style="width:100%; margin-top:5px; padding:10px; border-radius:6px; border:1px solid #d1d5db;"></textarea>
+        <textarea id="aiEdit_persona" rows="3" class="textarea-std"></textarea>
       </div>
-      <div class="row" style="display:block; margin-top:10px;">
-        <label><strong>Studijní materiály pro AI <span style="font-weight:normal; color:#6b7280;">(volitelné — AI z nich bude generovat otázky)</span></strong></label>
+      <div class="row block-mt">
+        <label><strong>Studijní materiály pro AI <span class="muted-sm">(volitelné — AI z nich bude generovat otázky, témata)</span></strong></label>
         <div id="aiEditMatList" style="margin-top:8px; margin-bottom:8px;"></div>
-        <div id="aiEditMatDropZone"
-             ondragover="event.preventDefault(); this.style.background='var(--bg-card-hover)'; this.style.borderColor='var(--btn-primary)';"
-             ondragleave="this.style.background=''; this.style.borderColor='var(--border-color)';"
-             ondrop="handleAiEditMatDrop(event)"
-             style="border:2px dashed var(--border-color); border-radius:8px; padding:18px 16px; text-align:center; color:var(--text-muted); font-size:13px; cursor:pointer; transition:background 0.2s, border-color 0.2s; user-select:none;"
+        <div id="aiEditMatDropZone" class="drop-zone"
+             ondragover="event.preventDefault(); this.classList.add('drag-over');"
+             ondragleave="this.classList.remove('drag-over');"
+             ondrop="handleAiEditMatDrop(event); this.classList.remove('drag-over');"
              onclick="document.getElementById('aiEditMatInput').click()">
-          <div style="margin-bottom:8px; pointer-events:none;">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><polyline points="9 14 12 17 15 14"/></svg>
+          <div class="drop-zone-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--btn-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><polyline points="9 14 12 17 15 14"/></svg>
           </div>
-          <div style="font-weight:bold; color:var(--text-primary); margin-bottom:4px; pointer-events:none;">Přetáhněte soubory sem nebo klikněte pro výběr</div>
-          <div style="font-size:11px; pointer-events:none;">PDF, DOCX, TXT, MD · max 10 MB</div>
+          <div class="drop-zone-title">Přetáhněte soubory sem nebo klikněte pro výběr</div>
+          <div class="drop-zone-hint">PDF, DOCX, TXT, MD · max 10 MB</div>
         </div>
         <input type="file" id="aiEditMatInput" multiple accept=".pdf,.docx,.txt,.md" style="display:none" onchange="handleAiEditMatSelect(event)" />
         <div id="aiEditMatPendingList"></div>
       </div>
-      <div class="row" style="display:block; margin-top:10px;">
+      <div class="row block-mt" id="aiEditEx_rubric">
         <label><strong>Co chcete ve zpětné vazbě od AI:</strong></label>
-        <textarea id="aiEdit_rubric" rows="2" style="width:100%; margin-top:5px; padding:10px; border-radius:6px; border:1px solid #d1d5db;"></textarea>
+        <textarea id="aiEdit_rubric" rows="2" class="textarea-std"></textarea>
       </div>
-      <div class="row" style="margin-top:10px;">
-        <div style="flex:1;"><label>Styl hodnocení:</label>
+
+      <!-- ── Pole specifická pro AI vzdělávání (edit) ──────────────────────── -->
+      <div id="aiEditEdu_fields" style="display:none; padding:14px 0 4px; border-top:1px dashed var(--border-color); margin-top:14px;">
+        <div class="row">
+          <div class="grow-1" style="flex:2;">
+            <label><strong>Témata / kapitoly</strong> <span class="muted-sm">(oddělte čárkou)</span>:</label>
+            <input type="text" id="aiEditEdu_topics" style="width:100%;" />
+          </div>
+          <div class="grow-1">
+            <label>Způsob prezentace:</label>
+            <select id="aiEditEdu_presentation">
+              <option value="flowing">Plynulý text</option>
+              <option value="structured">Strukturované sekce</option>
+              <option value="combined" selected>Kombinace</option>
+            </select>
+          </div>
+          <div class="grow-1">
+            <label>Styl vysvětlení:</label>
+            <select id="aiEditEdu_explainStyle">
+              <option value="adaptive" selected>Adaptivní</option>
+              <option value="analogy">Přes analogie</option>
+              <option value="technical">Technicky</option>
+              <option value="code">S příklady kódu</option>
+            </select>
+          </div>
+        </div>
+        <div class="row" style="margin-top:10px;">
+          <div class="grow-1">
+            <label>Ověřovacích otázek <span class="muted-sm">(1–5)</span>:</label>
+            <input type="number" id="aiEditEdu_verifyQ" value="2" min="1" max="5" step="1" />
+          </div>
+          <div class="grow-1">
+            <label>Práh pochopení <span class="muted-sm">(%)</span>:</label>
+            <input type="number" id="aiEditEdu_threshold" value="75" min="50" max="100" step="5" />
+          </div>
+          <div class="grow-1">
+            <label>Max. opakování tématu <span class="muted-sm">(1–5)</span>:</label>
+            <input type="number" id="aiEditEdu_maxRepeats" value="3" min="1" max="5" step="1" />
+          </div>
+          <input type="hidden" id="aiEditEdu_verifyQtypes" value="open">
+        </div>
+      </div>
+      <!-- ── Konec pole AI vzdělávání (edit) ──────────────────────────────── -->
+
+      <div class="row" style="margin-top:10px;" id="aiEditEx_gradingRow">
+        <div class="grow-1" id="aiEditEx_gradingStyleCell"><label>Styl hodnocení:</label>
           <select id="aiEdit_gradingStyle" onchange="document.getElementById('aiEdit_maxPointsWrapper').style.display = this.value !== 'none' ? 'block' : 'none'">
             <option value="equal">Rovnoměrně rozdělit body mezi úkoly</option>
             <option value="percent">Na procenta (%)</option>
             <option value="none">Bez bodů</option>
           </select>
         </div>
-        <div style="flex:1;" id="aiEdit_maxPointsWrapper"><label>Maximum bodů:</label><input type="number" id="aiEdit_maxPoints" value="10" min="1" /></div>
-        <div style="flex:1;"><label>Max. počet pokusů <span style="font-weight:normal; color:#6b7280;">(0 = neomezeno)</span>:</label><input type="number" id="aiEdit_maxAttempts" value="0" min="0" /></div>
-        <div style="flex:1;"><label>Přeskakování podúkolů:</label>
+        <div class="grow-1" id="aiEdit_maxPointsWrapper"><label>Maximum bodů:</label><input type="number" id="aiEdit_maxPoints" value="10" min="1" /></div>
+        <div class="grow-1"><label>Max. počet pokusů <span class="muted-sm">(0 = neomezeno)</span>:</label><input type="number" id="aiEdit_maxAttempts" value="0" min="0" /></div>
+        <div class="grow-1" id="aiEditEx_skipCell"><label>Přeskakování podúkolů:</label>
           <select id="aiEdit_allowSkip">
             <option value="true" selected>Povoleno</option>
             <option value="false">Zakázáno</option>
           </select>
         </div>
-        <div style="flex:1; display:flex; align-items:center; gap:8px; padding-top:18px;">
-          <input type="checkbox" id="aiEdit_autoSubmit" style="width:16px; height:16px; accent-color:var(--primary,#3b82f6); cursor:pointer; flex-shrink:0;">
-          <label for="aiEdit_autoSubmit" style="cursor:pointer; font-weight:500; margin:0; line-height:1.3;">Bez hodnocení učitele
-            <span style="display:block; font-size:11px; color:var(--text-muted); font-weight:normal;">Body se uloží automaticky, student může začit další pokus</span>
+        <div style="flex:1; display:flex; align-items:center; gap:8px; padding-top:18px;" id="aiEditEx_autoSubmitCell">
+          <input type="checkbox" id="aiEdit_autoSubmit" class="cb-sm">
+          <label for="aiEdit_autoSubmit" class="label-click">Bez hodnocení učitele
+            <span class="sub-label">Body se uloží automaticky, student může začit další pokus</span>
           </label>
         </div>
       </div>
       <div class="row" style="margin-top:10px;">
-        <div style="flex:1;"><label>Termín odevzdání:</label><input type="datetime-local" id="aiEdit_deadline" onclick="this.showPicker?.()" style="width:100%;padding:6px 10px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-panel);color:var(--text-primary);font-size:13px;cursor:pointer;color-scheme:dark;" /></div>
-        <div style="flex:1;"><label>Čas (min):</label><input type="number" id="aiEdit_timeLimit" value="60" min="10" step="5" /></div>
-        <div style="flex:1;"><label>Podúkoly:</label><input type="number" id="aiEdit_subtasks" value="3" min="1" /></div>
+        <div class="grow-1" id="aiEditEx_deadlineCell"><label>Termín odevzdání:</label><input type="datetime-local" id="aiEdit_deadline" onclick="this.showPicker?.()" style="width:100%;padding:6px 10px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-panel);color:var(--text-primary);font-size:13px;cursor:pointer;color-scheme:dark;" /></div>
+        <div class="grow-1"><label>Čas (min, 0 = neomezeno):</label><input type="number" id="aiEdit_timeLimit" value="60" min="0" step="5" placeholder="0 = neomezeno" /></div>
+        <div class="grow-1" id="aiEditEx_subtasksCell"><label>Podúkoly:</label><input type="number" id="aiEdit_subtasks" value="3" min="1" oninput="window._updateQtypeHint && window._updateQtypeHint('edit')" /></div>
         <div style="flex:1; display:flex; align-items:flex-end;">
           <button onclick="saveEditedAiScenario()" style="width:100%; margin-bottom:0; background:#f59e0b;">Uložit změny AI zadání</button>
         </div>
@@ -642,20 +657,20 @@
       <div id="aiEditMatUploadStatus" style="font-size:13px; color:#1d4ed8; margin-top:4px;"></div>
     </div>
 
-    <div class="panel main-panel" id="panel-scenario-create" style="border: 2px solid #2563eb;">
+    <div class="panel main-panel panel-accent" id="panel-scenario-create">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
         <h2 style="margin:0;">Vytvořit zadání:</h2>
         <span onclick="document.getElementById('scenarioTaskType').value=''; toggleScenarioFormType();" style="cursor:pointer; font-size:26px; color:#6b7280; line-height:1;">&times;</span>
       </div>
       <div class="row" style="align-items: flex-start;">
-        <div style="flex: 1;">
+        <div class="grow-1">
           <label>Kurz:</label>
-          <select id="scenarioCourseSelect" onchange="checkScenarioCoursePermissions(); window.refreshCreateScenarioGroups();"><option value="">Načítám kurzy...</option></select>
+          <select id="scenarioCourseSelect" onchange="checkScenarioCoursePermissions(); window.refreshCreateScenarioGroups(); window.reloadPrereqSelects('prereqsCreateContainer', this.value, null);"><option value="">Načítám kurzy...</option></select>
           <div id="scenarioCourseWarning" style="color: #dc2626; font-size: 12px; font-weight: bold; margin-top: 5px; display: none;">
             Nejste správcem kurzu, nemáte oprávnění přidávat zadání.
           </div>
         </div>
-        <div style="flex: 1;">
+        <div class="grow-1">
           <label>Typ zadání:</label>
           <select id="scenarioTaskType" onchange="toggleScenarioFormType()">
             <option value="" selected disabled>— Vyberte typ zadání —</option>
@@ -663,24 +678,33 @@
             <option value="exam">Zkouška</option>
             <option value="credit">Klasifikovaný zápočet</option>
             <option value="adaptive">AI cvičení</option>
+            <option value="ai_education">AI vzdělávání</option>
           </select>
         </div>
       </div>
 
+      <div id="prereqsCreateSection" style="margin-top:10px; display:none;">
+        <label style="display:block; margin-bottom:6px;">Podmínky pro odemčení zadání <span class="muted-sm">(volitelné)</span>:</label>
+        <div id="prereqsCreateContainer"></div>
+        <button type="button" class="btn-small" style="margin-top:4px; font-size:12px; padding:3px 10px;" onclick="window.addPrereqRow('prereqsCreateContainer', document.getElementById('scenarioCourseSelect').value, null, null)">+ Přidat podmínku</button>
+      </div>
+
       <div id="standardScenarioFields" style="display: none;">
         <div class="row" style="margin-top: 10px;">
-          <div style="flex: 2;"><label>Název zadání:</label><input type="text" id="scenarioTitle" placeholder="Např. Konfigurace firewallu" /></div>
-          <div style="flex: 1;">
-            <label>Operační systém pro řešení:</label>
+          <div class="grow-2"><label>Název zadání:</label><input type="text" id="scenarioTitle" placeholder="Např. Konfigurace firewallu" /></div>
+          <div class="grow-1">
+            <label>Virutální prostředi:</label>
             <select id="scenarioRequiredOs">
-              <option value="kali" selected>Kali Linux</option>
+              <option value="kali" selected>Kali Linux (GUI)</option>
+              <option value="ubuntu">Ubuntu (GUI)</option>
+              <option value="none">Žádné virtuální prostředí</option>
             </select>
           </div>
         </div>
         
-        <div class="row" style="display: block; margin-top: 10px;">
+        <div class="row block-mt">
           <label><strong>Popis úkolu:</strong></label>
-          <textarea id="scenarioDescription" rows="2" style="width:100%; margin-top:5px; padding:10px; border-radius:6px; border:1px solid #d1d5db;" placeholder="Stručný úvod a teorie pro studenta..."></textarea>
+          <textarea id="scenarioDescription" rows="2" class="textarea-std" placeholder="Stručný úvod a teorie pro studenta..."></textarea>
         </div>
         
         
@@ -707,17 +731,17 @@
                     <label style="font-size:11px; color:var(--text-muted); font-weight:bold; display:block; margin-bottom:4px;">Zadání úkolu:</label>
                     <textarea class="task-input" rows="2" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background: var(--bg-panel); color: var(--text-primary);" placeholder="Popište, co má student udělat..."></textarea>
                     
-                    <div class="task-rubric-wrapper" style="display: none; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-color);">
+                    <div class="task-rubric-wrapper" class="task-section-hidden">
                       <label class="rubric-label" style="font-size:11px; color:var(--text-primary); font-weight:bold;">Kritéria bodování pro AI:</label>
                       <textarea class="task-rubric" rows="2" style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); box-sizing: border-box; background: var(--bg-panel); color: var(--text-primary);" placeholder="Napište pravidla pro AI hodnocení tohoto úkolu..."></textarea>
                     </div>
 
-                    <div class="task-solution-text-wrapper" style="display: none; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-color);">
+                    <div class="task-solution-text-wrapper" class="task-section-hidden">
                       <label class="task-sol-text-label" style="font-size:11px; color:var(--text-primary); font-weight:bold;">Správné řešení (pro učitele / AI):</label>
                       <textarea class="task-solution-text" rows="2" style="width: 100%; margin-top: 4px; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); box-sizing: border-box; background: var(--bg-status); color: var(--text-primary);" placeholder="Jak vypadá správné řešení tohoto úkolu..."></textarea>
                     </div>
 
-                    <div class="task-config-wrapper" style="display: block; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-color);">
+                    <div class="task-config-wrapper" class="task-section">
                       <div class="task-type-config-container">
                         <label style="font-size:11px; color:var(--text-muted); font-weight:bold;">Vyžadované řešení (Flag / IP / Přesný text):</label>
                         <div style="display:flex; gap:4px; margin-top:4px;">
@@ -727,7 +751,7 @@
                         <div class="alt-solutions-container"></div>
                       </div>
 
-                      <div class="task-hints-container" style="margin-top:8px; padding-top:8px; border-top:1px dashed var(--border-color);">
+                      <div class="task-hints-container" class="task-section">
                         <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px; flex-wrap:wrap;">
                           <label style="font-size:11px; color:var(--text-muted); font-weight:bold; white-space:nowrap;">Body za úkol:</label>
                           <input type="number" class="task-points" min="0" max="100" value="0" style="width:48px; padding:4px; border-radius:4px; border:1px solid var(--border-color); background:var(--bg-panel); color:var(--text-primary); font-size:12px; text-align:center;" />
@@ -746,7 +770,7 @@
               <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
                 <button type="button" class="btn-add-task" onclick="window.addTaskField(this)">Přidat další úkol</button>
               </div>
-              <div class="variant-grading-row" style="display:flex; gap:10px; align-items:center; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border-color); flex-wrap:wrap;">
+              <div class="variant-grading-row" class="variant-grading-row">
                 <div style="display:flex; align-items:center; gap:6px;">
                   <label style="font-size:11px; color:var(--text-muted); font-weight:bold; white-space:nowrap;">Styl hodnocení:</label>
                   <select class="variant-grading-style" onchange="window.onVariantGradingStyleChange(this)" style="font-size:12px; padding:3px 8px; border-radius:4px; border:1px solid var(--border-color); background:var(--bg-panel); color:var(--text-primary); cursor:pointer;">
@@ -802,7 +826,7 @@
         <div id="globalExpectedOutputsWrapper" style="display: none;"></div>
 
         <div class="row" style="margin-top: 15px; align-items: flex-start;">
-          <div style="flex: 1;">
+          <div class="grow-1">
             <label>Viditelné pro (Skupiny):</label>
             <div style="position: relative; margin-top: 5px; margin-bottom: 0; width: 100%;">
               <div onclick="toggleMultiSelect('scenarioTargetGroupList')" style="padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
@@ -813,7 +837,7 @@
                 </div>
             </div>
           </div>
-          <div style="flex: 1;"><label>Termín odevzdání:</label><input type="datetime-local" id="scenarioDeadline" /></div>
+          <div class="grow-1"><label>Termín odevzdání:</label><input type="datetime-local" id="scenarioDeadline" /></div>
           <div style="flex: 1.5;">
             <label>Režim pokusů:</label>
             <div style="display: flex; gap: 8px;">
@@ -839,20 +863,20 @@
             <label>Maximum bodů:</label>
             <input type="number" id="scenarioMaxPoints" value="10" min="1" step="1" />
           </div>
-          <div style="flex: 1;">
+          <div class="grow-1">
             <label>Čas na lab (minuty):</label>
             <input type="number" id="scenarioTimeLimit" value="60" min="5" step="5" />
           </div>
           <div id="scenarioAutoSubmitWrapper" style="flex:1; display:none; align-items:center; gap:8px; padding-top:18px;">
-            <input type="checkbox" id="scenarioAutoSubmit" onchange="window.syncScenarioFormLocks(false)" style="width:16px; height:16px; accent-color:var(--primary,#3b82f6); cursor:pointer; flex-shrink:0;">
-            <label for="scenarioAutoSubmit" style="cursor:pointer; font-weight:500; margin:0; line-height:1.3;">Bez hodnocení učitele
-              <span style="display:block; font-size:11px; color:var(--text-muted); font-weight:normal;">Body se uloží automaticky, student může začit další pokus</span>
+            <input type="checkbox" id="scenarioAutoSubmit" onchange="window.syncScenarioFormLocks(false)" class="cb-sm">
+            <label for="scenarioAutoSubmit" class="label-click">Bez hodnocení učitele
+              <span class="sub-label">Body se uloží automaticky, student může začit další pokus</span>
             </label>
           </div>
           <div id="scenarioPassThresholdWrapper" style="flex:1; display:none; align-items:center; gap:8px;">
-            <input type="checkbox" id="scenarioPassThresholdCb" onchange="togglePassThreshold('scenarioPassThresholdInput')" style="width:16px; height:16px; accent-color:var(--primary,#3b82f6); cursor:pointer; flex-shrink:0;">
-            <label for="scenarioPassThresholdCb" style="cursor:pointer; font-weight:500; margin:0; line-height:1.3;">Minimální úspěšnost
-              <span style="display:block; font-size:11px; color:var(--text-muted); font-weight:normal;">Pokud nezaškrtnuto → klasická známka od učitele</span>
+            <input type="checkbox" id="scenarioPassThresholdCb" onchange="togglePassThreshold('scenarioPassThresholdInput')" class="cb-sm">
+            <label for="scenarioPassThresholdCb" class="label-click">Minimální úspěšnost
+              <span class="sub-label">Pokud nezaškrtnuto → klasická známka od učitele</span>
             </label>
             <div id="scenarioPassThresholdInput" style="display:none; align-items:center; gap:4px; margin-left:8px;">
               <input type="number" id="scenarioPassThreshold" value="70" min="1" max="100" style="width:60px; padding:4px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-status); color:var(--text-primary); font-size:13px;">
@@ -867,16 +891,20 @@
       </div>
 
       <div id="aiScenarioFields" style="display:none; padding-top: 10px; border-top: 1px dashed #d1d5db; margin-top: 15px;">
-        <div class="row">
-          <div style="flex: 2;">
+        <div class="row" id="aiEx_row1">
+          <div class="grow-2">
             <label>Název AI zadání:</label>
             <input type="text" id="aiScenarioTitle" placeholder="Např. Interaktivní průvodce Nmapem" />
           </div>
-          <div style="flex: 1;">
+          <div class="grow-1">
             <label>OS:</label>
-            <select id="aiScenarioRequiredOs"><option value="kali" selected>Kali Linux</option></select>
+            <select id="aiScenarioRequiredOs">
+              <option value="kali" selected>Kali Linux (GUI)</option>
+              <option value="ubuntu">Ubuntu (GUI)</option>
+              <option value="none">Žádné virtuální prostředí</option>
+            </select>
           </div>
-          <div style="flex: 1;">
+          <div class="grow-1">
             <label>Počáteční obtížnost:</label>
             <select id="aiScenarioDifficulty">
               <option value="easy">Lehká</option>
@@ -884,7 +912,7 @@
               <option value="hard">Těžká</option>
             </select>
           </div>
-          <div style="flex: 1;">
+          <div class="grow-1">
             <label>Adaptivita:</label>
             <select id="aiScenarioAdaptive">
               <option value="true" selected>Zapnuta</option>
@@ -892,33 +920,32 @@
             </select>
           </div>
         </div>
-S
-        <div class="row" style="margin-top: 10px;">
-          <div style="flex: 2;">
-            <label>Témata / tagy <span style="font-weight:normal; color:#6b7280;">(oddělte čárkou)</span>:</label>
+        <div class="row" id="aiEx_row2" style="margin-top: 10px;">
+          <div class="grow-2">
+            <label>Témata / tagy <span class="muted-sm">(oddělte čárkou)</span>:</label>
             <input type="text" id="aiScenarioTags" placeholder="Např. nmap, reconnaissance, firewall" />
           </div>
-          <div style="flex: 2;">
-            <label>Povolené nástroje <span style="font-weight:normal; color:#6b7280;">(oddělte čárkou)</span>:</label>
+          <div class="grow-2">
+            <label>Povolené nástroje <span class="muted-sm">(oddělte čárkou)</span>:</label>
             <input type="text" id="aiScenarioTools" placeholder="Např. nmap, netcat, curl" />
           </div>
         </div>
 
-        <div class="row" style="display: block; margin-top: 10px;">
+        <div class="row block-mt">
           <label><strong>Obecný popis:</strong></label>
-          <textarea id="aiScenarioDescription" rows="2" style="width:100%; margin-top:5px; padding:10px; border-radius:6px; border:1px solid #d1d5db;" placeholder="Stručně popište studentům, jaký bude jejich úkol a do jaké situace se vžívají..."></textarea>
+          <textarea id="aiScenarioDescription" rows="2" class="textarea-std" placeholder="Stručně popište studentům, jaký bude jejich úkol a do jaké situace se vžívají..."></textarea>
         </div>
         
-        <div class="row" style="display: block; margin-top: 10px;">
+        <div class="row block-mt">
           <label><strong>Vzdělávací cíl:</strong></label>
-          <textarea id="aiScenarioGoal" rows="3" style="width:100%; margin-top:5px; padding:10px; border-radius:6px; border:1px solid #d1d5db;" placeholder="Nauč studenta postupně zjistit vlastní IP, poté přeskenovat lokální síť a nakonec najít otevřený port 80..."></textarea>
+          <textarea id="aiScenarioGoal" rows="3" class="textarea-std" placeholder="Nauč studenta postupně zjistit vlastní IP, poté přeskenovat lokální síť a nakonec najít otevřený port 80..."></textarea>
         </div>
 
-        <div class="row" style="display:block; margin-top:10px;">
+        <div class="row block-mt" id="aiEx_qtypes">
           <div style="display:flex; align-items:center; justify-content:flex-start; margin-bottom:6px;">
             <strong style="margin-right:12px;">Povolené formáty otázek:</strong>
             <label style="font-weight:normal; cursor:pointer; display:flex !important; align-items:center !important; gap:8px !important; font-size:13px; color:var(--text-muted); margin:0; white-space:nowrap; padding:0;">
-              <input type="checkbox" id="aiScenario_qtypesRotate" checked onchange="window.toggleQtypesRotate('create')" style="margin:0 !important; padding:0 !important; width:16px !important; height:16px !important; flex-shrink:0 !important;"> AI je bude střídat
+              <input type="checkbox" id="aiScenario_qtypesRotate" checked onchange="window.toggleQtypesRotate('create')" class="cb-sm"> AI je bude střídat
             </label>
           </div>
           <div style="position: relative; width: 350px; max-width: 100%;">
@@ -927,31 +954,31 @@ S
               <span style="font-size: 10px; color: var(--text-muted); flex-shrink:0; margin-left:10px;">▼</span>
             </div>
             <div id="aiScenario_qtypesList" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 50; max-height: 180px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-panel); box-shadow: 0 4px 12px rgba(0,0,0,0.15); margin-top: 4px; padding: 0;">
-              <label style="display:flex !important; justify-content:space-between !important; align-items:center !important; cursor:pointer; font-size:13px; color:var(--text-primary); font-weight:normal; margin:0; padding:8px 12px; border-bottom:1px solid var(--border-color);" onmouseover="this.style.background='var(--bg-status)'" onmouseout="this.style.background='transparent'">
-                <div style="display:flex; align-items:center; gap:10px; flex-grow:1;"><input type="checkbox" class="qtype-cb-create" value="otevřená odpověď" checked onchange="window.updateQtypesLabel('create')" style="margin:0 !important; padding:0 !important; width:16px !important; height:16px !important; flex-shrink:0 !important;"> <span>Otevřená odpověď</span></div>
-                <input type="number" class="qtype-count-create" value="1" min="1" step="1" onchange="window.recalcQtypesTotal('create')" onclick="event.stopPropagation()" style="display:none; width:45px; padding:2px 4px; font-size:12px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-input); color:var(--text-primary); margin:0;">
+              <label class="task-acc-row">
+                <div class="qtype-opt-row"><input type="checkbox" class="qtype-cb-create cb-sm" value="otevřená odpověď" checked onchange="window.updateQtypesLabel('create')" > <span>Otevřená odpověď</span></div>
+                <input type="number" class="qtype-count-create qtype-count" value="1" min="1" step="1" onchange="window.recalcQtypesTotal('create')" onclick="event.stopPropagation()"  style="display:none;">
               </label>
-              <label style="display:flex !important; justify-content:space-between !important; align-items:center !important; cursor:pointer; font-size:13px; color:var(--text-primary); font-weight:normal; margin:0; padding:8px 12px; border-bottom:1px solid var(--border-color);" onmouseover="this.style.background='var(--bg-status)'" onmouseout="this.style.background='transparent'">
-                <div style="display:flex; align-items:center; gap:10px; flex-grow:1;"><input type="checkbox" class="qtype-cb-create" value="A/B/C/D" onchange="window.updateQtypesLabel('create')" style="margin:0 !important; padding:0 !important; width:16px !important; height:16px !important; flex-shrink:0 !important;"> <span>Výběr z možností (A/B/C/D)</span></div>
-                <input type="number" class="qtype-count-create" value="1" min="1" step="1" onchange="window.recalcQtypesTotal('create')" onclick="event.stopPropagation()" style="display:none; width:45px; padding:2px 4px; font-size:12px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-input); color:var(--text-primary); margin:0;">
+              <label class="task-acc-row">
+                <div class="qtype-opt-row"><input type="checkbox" class="qtype-cb-create cb-sm" value="A/B/C/D" onchange="window.updateQtypesLabel('create')" > <span>Výběr z možností (A/B/C/D)</span></div>
+                <input type="number" class="qtype-count-create qtype-count" value="1" min="1" step="1" onchange="window.recalcQtypesTotal('create')" onclick="event.stopPropagation()"  style="display:none;">
               </label>
-              <label style="display:flex !important; justify-content:space-between !important; align-items:center !important; cursor:pointer; font-size:13px; color:var(--text-primary); font-weight:normal; margin:0; padding:8px 12px; border-bottom:1px solid var(--border-color);" onmouseover="this.style.background='var(--bg-status)'" onmouseout="this.style.background='transparent'">
-                <div style="display:flex; align-items:center; gap:10px; flex-grow:1;"><input type="checkbox" class="qtype-cb-create" value="doplňování slov" onchange="window.updateQtypesLabel('create')" style="margin:0 !important; padding:0 !important; width:16px !important; height:16px !important; flex-shrink:0 !important;"> <span>Doplňování chybějících slov</span></div>
-                <input type="number" class="qtype-count-create" value="1" min="1" step="1" onchange="window.recalcQtypesTotal('create')" onclick="event.stopPropagation()" style="display:none; width:45px; padding:2px 4px; font-size:12px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-input); color:var(--text-primary); margin:0;">
+              <label class="task-acc-row">
+                <div class="qtype-opt-row"><input type="checkbox" class="qtype-cb-create cb-sm" value="doplňování slov" onchange="window.updateQtypesLabel('create')" > <span>Doplňování chybějících slov</span></div>
+                <input type="number" class="qtype-count-create qtype-count" value="1" min="1" step="1" onchange="window.recalcQtypesTotal('create')" onclick="event.stopPropagation()"  style="display:none;">
               </label>
-              <label style="display:flex !important; justify-content:space-between !important; align-items:center !important; cursor:pointer; font-size:13px; color:var(--text-primary); font-weight:normal; margin:0; padding:8px 12px; border-bottom:1px solid var(--border-color);" onmouseover="this.style.background='var(--bg-status)'" onmouseout="this.style.background='transparent'">
-                <div style="display:flex; align-items:center; gap:10px; flex-grow:1;"><input type="checkbox" class="qtype-cb-create" value="Pravda/Nepravda" onchange="window.updateQtypesLabel('create')" style="margin:0 !important; padding:0 !important; width:16px !important; height:16px !important; flex-shrink:0 !important;"> <span>Pravda / Nepravda</span></div>
-                <input type="number" class="qtype-count-create" value="1" min="1" step="1" onchange="window.recalcQtypesTotal('create')" onclick="event.stopPropagation()" style="display:none; width:45px; padding:2px 4px; font-size:12px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-input); color:var(--text-primary); margin:0;">
+              <label class="task-acc-row">
+                <div class="qtype-opt-row"><input type="checkbox" class="qtype-cb-create cb-sm" value="Pravda/Nepravda" onchange="window.updateQtypesLabel('create')" > <span>Pravda / Nepravda</span></div>
+                <input type="number" class="qtype-count-create qtype-count" value="1" min="1" step="1" onchange="window.recalcQtypesTotal('create')" onclick="event.stopPropagation()"  style="display:none;">
               </label>
-              <label style="display:flex !important; justify-content:space-between !important; align-items:center !important; cursor:pointer; font-size:13px; color:var(--text-primary); font-weight:normal; margin:0; padding:8px 12px;" onmouseover="this.style.background='var(--bg-status)'" onmouseout="this.style.background='transparent'">
-                <div style="display:flex; align-items:center; gap:10px; flex-grow:1;"><input type="checkbox" class="qtype-cb-create" value="oprava chyby" onchange="window.updateQtypesLabel('create')" style="margin:0 !important; padding:0 !important; width:16px !important; height:16px !important; flex-shrink:0 !important;"> <span>Analýza a oprava chyby v kódu</span></div>
-                <input type="number" class="qtype-count-create" value="1" min="1" step="1" onchange="window.recalcQtypesTotal('create')" onclick="event.stopPropagation()" style="display:none; width:45px; padding:2px 4px; font-size:12px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-input); color:var(--text-primary); margin:0;">
+              <label class="task-acc-row">
+                <div class="qtype-opt-row"><input type="checkbox" class="qtype-cb-create cb-sm" value="oprava chyby" onchange="window.updateQtypesLabel('create')" > <span>Analýza a oprava chyby v kódu</span></div>
+                <input type="number" class="qtype-count-create qtype-count" value="1" min="1" step="1" onchange="window.recalcQtypesTotal('create')" onclick="event.stopPropagation()"  style="display:none;">
               </label>
             </div>
           </div>
         </div>
 
-        <div class="row" style="display: block; margin-top: 10px;">
+        <div class="row block-mt">
           <label><strong>Master prompt pro AI:</strong></label>
           <div style="margin-top:6px; margin-bottom:8px;">
             <div style="font-size:12px; color:var(--text-muted); margin-bottom:6px;">Vyberte šablonu nebo napište vlastní:</div>
@@ -960,32 +987,74 @@ S
           <textarea id="aiScenarioPersona" rows="6" style="width:100%; margin-top:4px; padding:10px; border-radius:6px; border:1px solid #d1d5db; font-size:13px; font-family:monospace;" placeholder="Vyberte šablonu výše nebo napište vlastní osobnost AI mentora..."></textarea>
         </div>
 
-        <div class="row" style="display: block; margin-top: 10px;">
+        <div class="row block-mt" id="aiEx_rubric">
           <label><strong>Co chcete ve zpětné vazbě od AI:</strong></label>
-          <textarea id="aiScenarioGradingRubric" rows="2" style="width:100%; margin-top:5px; padding:10px; border-radius:6px; border:1px solid #d1d5db;" placeholder="Napište pravidla pro hodnocení, např. 'Dej 10 bodů, pokud student splnil všechny podúkoly, strhni 2 body za každou velkou nápovědu.'"></textarea>
+          <textarea id="aiScenarioGradingRubric" rows="2" class="textarea-std" placeholder="Napište pravidla pro hodnocení, např. 'Dej 10 bodů, pokud student splnil všechny podúkoly, strhni 2 body za každou velkou nápovědu.'"></textarea>
         </div>
 
         <div class="row" style="display:block; margin-top: 12px;">
-          <label style="display:block; margin-bottom:6px;"><strong>Studijní materiály pro AI</strong> <span style="font-weight:normal; color:#6b7280; font-size:12px;">(volitelné — AI z nich bude generovat otázky)</span></label>
-          <div id="aiMatDropZone"
-              style="border:2px dashed var(--border-color); border-radius:8px; padding:18px 16px; text-align:center; color:var(--text-muted); font-size:13px; cursor:pointer; transition:background 0.2s, border-color 0.2s; user-select:none;"
-              ondragover="event.preventDefault(); this.style.background='var(--bg-card-hover)'; this.style.borderColor='var(--btn-primary)';"
-              ondragleave="this.style.background=''; this.style.borderColor='var(--border-color)';"
-              ondrop="handleAiMatDrop(event);"
+          <label style="display:block; margin-bottom:6px;"><strong>Studijní materiály pro AI</strong> <span style="font-weight:normal; color:#6b7280; font-size:12px;">(volitelné — AI z nich bude generovat otázky, témata)</span></label>
+          <div id="aiMatDropZone" class="drop-zone"
+              ondragover="event.preventDefault(); this.classList.add('drag-over');"
+              ondragleave="this.classList.remove('drag-over');"
+              ondrop="handleAiMatDrop(event); this.classList.remove('drag-over');"
               onclick="document.getElementById('aiMatInput').click()">
-              <div style="margin-bottom:8px; pointer-events:none;">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><polyline points="9 14 12 17 15 14"/></svg>
+              <div class="drop-zone-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--btn-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><polyline points="9 14 12 17 15 14"/></svg>
               </div>
-              <div style="font-weight:bold; color:var(--text-primary); margin-bottom:4px; pointer-events:none;">Přetáhněte soubory sem nebo klikněte pro výběr</div>
-              <div style="font-size:11px; pointer-events:none;">PDF, DOCX, TXT, MD · max 10 MB</div>
+              <div class="drop-zone-title">Přetáhněte soubory sem nebo klikněte pro výběr</div>
+              <div class="drop-zone-hint">PDF, DOCX, TXT, MD · max 10 MB</div>
           </div>
           <input type="file" id="aiMatInput" multiple accept=".pdf,.docx,.txt,.md"
               style="display:none;" onchange="handleAiMatSelect(event)" />
           <div id="aiMatPendingList"></div>
         </div>
 
-        <div class="row" style="margin-top: 10px;">
-          <div style="flex: 1;">
+        <!-- ── Pole specifická pro AI vzdělávání ─────────────────────────────── -->
+        <div id="aiEdu_fields" style="display:none; padding:14px 0 4px; border-top:1px dashed var(--border-color); margin-top:14px;">
+          <div class="row">
+            <div class="grow-1" style="flex:2;">
+              <label><strong>Témata / kapitoly</strong> <span class="muted-sm">(oddělte čárkou — každé bude AI vysvětleno zvlášť)</span>:</label>
+              <input type="text" id="aiEdu_topics" placeholder="Např. OSI model, TCP/IP, DNS, HTTP, SSL/TLS" style="width:100%;"/>
+            </div>
+            <div class="grow-1">
+              <label>Způsob prezentace výkladu:</label>
+              <select id="aiEdu_presentation">
+                <option value="flowing">Plynulý text</option>
+                <option value="structured">Strukturované sekce</option>
+                <option value="combined" selected>Kombinace</option>
+              </select>
+            </div>
+            <div class="grow-1">
+              <label>Styl vysvětlení AI:</label>
+              <select id="aiEdu_explainStyle">
+                <option value="adaptive" selected>Adaptivní</option>
+                <option value="analogy">Přes analogie</option>
+                <option value="technical">Technicky</option>
+                <option value="code">S příklady kódu</option>
+              </select>
+            </div>
+          </div>
+          <div class="row" style="margin-top:10px;">
+            <div class="grow-1">
+              <label>Ověřovacích otázek na téma <span class="muted-sm">(1–5)</span>:</label>
+              <input type="number" id="aiEdu_verifyQ" value="2" min="1" max="5" step="1" />
+            </div>
+            <div class="grow-1">
+              <label>Práh pochopení <span class="muted-sm">(%)</span>:</label>
+              <input type="number" id="aiEdu_threshold" value="75" min="50" max="100" step="5" />
+            </div>
+            <div class="grow-1">
+              <label>Max. opakování tématu <span class="muted-sm">(1–5)</span>:</label>
+              <input type="number" id="aiEdu_maxRepeats" value="3" min="1" max="5" step="1" />
+            </div>
+            <input type="hidden" id="aiEdu_verifyQtypes" value="open">
+          </div>
+        </div>
+        <!-- ── Konec pole AI vzdělávání ─────────────────────────────────────── -->
+
+        <div class="row" style="margin-top: 10px;" id="aiEx_gradingRow">
+          <div class="grow-1" id="aiEx_gradingStyleCell">
             <label>Styl hodnocení:</label>
             <select id="aiScenarioGradingStyle" onchange="document.getElementById('aiScenarioMaxPointsWrapper').style.display = this.value !== 'none' ? 'block' : 'none'">
               <option value="equal">Rovnoměrně rozdělit body mezi úkoly</option>
@@ -993,45 +1062,44 @@ S
               <option value="none">Bez bodů</option>
             </select>
           </div>
-          <div style="flex: 1;" id="aiScenarioMaxPointsWrapper">
+          <div class="grow-1" id="aiScenarioMaxPointsWrapper">
             <label>Maximum bodů:</label>
             <input type="number" id="aiScenarioMaxPoints" value="10" min="1" step="1" />
           </div>
-          <div style="flex: 1;">
-            <label>Max. počet pokusů <span style="font-weight:normal; color:#6b7280;">(0 = neomezeno)</span>:</label>
+          <div class="grow-1">
+            <label>Max. počet pokusů <span class="muted-sm">(0 = neomezeno)</span>:</label>
             <input type="number" id="aiScenarioMaxAttempts" value="0" min="0" step="1" />
           </div>
-          <div style="flex: 1;">
+          <div class="grow-1" id="aiEx_skipCell">
             <label>Přeskakování podúkolů:</label>
             <select id="aiScenarioAllowSkip">
               <option value="true" selected>Povoleno</option>
               <option value="false">Zakázáno</option>
             </select>
           </div>
-          <div style="flex:1; display:flex; align-items:center; gap:8px; padding-top:18px;">
-            <input type="checkbox" id="aiScenarioAutoSubmit" style="width:16px; height:16px; accent-color:var(--primary,#3b82f6); cursor:pointer; flex-shrink:0;">
-            <label for="aiScenarioAutoSubmit" style="cursor:pointer; font-weight:500; margin:0; line-height:1.3;">Bez hodnocení učitele
-              <span style="display:block; font-size:11px; color:var(--text-muted); font-weight:normal;">Body se uloží automaticky, student může začit další pokus</span>
+          <div style="flex:1; display:flex; align-items:center; gap:8px; padding-top:18px;" id="aiEx_autoSubmitCell">
+            <input type="checkbox" id="aiScenarioAutoSubmit" class="cb-sm">
+            <label for="aiScenarioAutoSubmit" class="label-click">Bez hodnocení učitele
+              <span class="sub-label">Body se uloží automaticky, student může začit další pokus</span>
             </label>
           </div>
         </div>
 
         <div class="row" style="margin-top: 10px;">
-          <div style="flex: 1;">
+          <div class="grow-1" id="aiEx_deadlineCell">
             <label>Termín odevzdání:</label>
-            <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Termín odevzdání:</label>
             <input type="datetime-local" id="aiScenarioDeadline" onclick="this.showPicker?.()" style="width:100%;padding:6px 10px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-panel);color:var(--text-primary);font-size:13px;cursor:pointer;color-scheme:dark;" />
           </div>
-          <div style="flex: 1;">
-            <label>Čas (min):</label>
-            <input type="number" id="aiScenarioTimeLimit" value="60" min="10" step="5" />
+          <div class="grow-1">
+            <label>Čas (min, 0 = neomezeno):</label>
+            <input type="number" id="aiScenarioTimeLimit" value="60" min="0" step="5" placeholder="0 = neomezeno" />
           </div>
-          <div style="flex: 1;">
+          <div class="grow-1" id="aiEx_subtasksCell">
             <label>Podúkoly:</label>
-            <input type="number" id="aiScenarioSubtasks" value="3" min="1" step="1" />
+            <input type="number" id="aiScenarioSubtasks" value="3" min="1" step="1" oninput="window._updateQtypeHint && window._updateQtypeHint('create')" />
           </div>
           <div style="flex: 1.2; display: flex; align-items: flex-end;">
-            <button onclick="createAdaptiveScenario()" style="width: 100%; margin-bottom: 0; background: #0369a1;">Vytvořit AI Scénář</button>
+            <button onclick="createAdaptiveScenario()" style="width: 100%; margin-bottom: 0; background: #0369a1;" id="aiScenarioCreateBtn">Vytvořit AI Scénář</button>
           </div>
         </div>
         <div id="aiScenarioStatus" style="font-weight: bold; margin-top: 10px;"></div>
@@ -1042,33 +1110,32 @@ S
     <div style="display:none;">
         <textarea id="aiScenarioDescription" rows="2"></textarea>
       
-      <div class="row" style="display: block; margin-top: 10px;">
+      <div class="row block-mt">
         <label><strong>Vzdělávací cíl:</strong></label>
-        <textarea id="aiScenarioGoal" rows="3" style="width:100%; margin-top:5px; padding:10px; border-radius:6px; border:1px solid #d1d5db;" placeholder="Nauč studenta postupně zjistit vlastní IP, poté přeskenovat lokální síť a nakonec najít otevřený port 80..."></textarea>
+        <textarea id="aiScenarioGoal" rows="3" class="textarea-std" placeholder="Nauč studenta postupně zjistit vlastní IP, poté přeskenovat lokální síť a nakonec najít otevřený port 80..."></textarea>
       </div>
 
-      <div class="row" style="display: block; margin-top: 10px;">
+      <div class="row block-mt">
         <label><strong>Master prompt pro AI:</strong></label>
-        <textarea id="aiScenarioPersona" rows="3" style="width:100%; margin-top:5px; padding:10px; border-radius:6px; border:1px solid #d1d5db;" placeholder="Jsi přátelský mentor. Nikdy neříkej studentovi přesné příkazy, pouze ho naváděj..."></textarea>
+        <textarea id="aiScenarioPersona" rows="3" class="textarea-std" placeholder="Jsi přátelský mentor. Nikdy neříkej studentovi přesné příkazy, pouze ho naváděj..."></textarea>
       </div>
-      <div class="row" style="display: block; margin-top: 10px;">
+      <div class="row block-mt">
         <label><strong>Co chcete ve zpětné vazbě od AI:</strong></label>
-        <textarea id="aiScenarioGradingRubric" rows="2" style="width:100%; margin-top:5px; padding:10px; border-radius:6px; border:1px solid #d1d5db;" placeholder="Napište pravidla pro hodnocení, např. 'Dej 10 bodů, pokud student splnil všechny podúkoly, strhni 2 body za každou velkou nápovědu.'"></textarea>
+        <textarea id="aiScenarioGradingRubric" rows="2" class="textarea-std" placeholder="Napište pravidla pro hodnocení, např. 'Dej 10 bodů, pokud student splnil všechny podúkoly, strhni 2 body za každou velkou nápovědu.'"></textarea>
       </div>
 
       <div class="row" style="display:block; margin-top: 12px;">
-        <label style="display:block; margin-bottom:6px;"><strong>Studijní materiály pro AI</strong> <span style="font-weight:normal; color:var(--text-muted); font-size:12px;">(volitelné — AI z nich bude generovat otázky)</span></label>
-        <div id="aiMatDropZone"
-            style="border:2px dashed var(--border-color); border-radius:8px; padding:18px 16px; text-align:center; color:var(--text-muted); font-size:13px; cursor:pointer; transition:background 0.2s, border-color 0.2s; user-select:none;"
-            ondragover="event.preventDefault(); this.style.background='var(--bg-card-hover)'; this.style.borderColor='var(--btn-primary)';"
-            ondragleave="this.style.background=''; this.style.borderColor='var(--border-color)';"
-            ondrop="handleAiMatDrop(event);"
+        <label style="display:block; margin-bottom:6px;"><strong>Studijní materiály pro AI</strong> <span style="font-weight:normal; color:var(--text-muted); font-size:12px;">(volitelné — AI z nich bude generovat otázky, témata)</span></label>
+        <div id="aiMatDropZone" class="drop-zone"
+            ondragover="event.preventDefault(); this.classList.add('drag-over');"
+            ondragleave="this.classList.remove('drag-over');"
+            ondrop="handleAiMatDrop(event); this.classList.remove('drag-over');"
             onclick="document.getElementById('aiMatInput').click()">
-            <div style="margin-bottom:8px; pointer-events:none;">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><polyline points="9 14 12 17 15 14"/></svg>
+            <div class="drop-zone-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--btn-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><polyline points="9 14 12 17 15 14"/></svg>
             </div>
-            <div style="font-weight:bold; color:var(--text-primary); margin-bottom:4px; pointer-events:none;">Přetáhněte soubory sem nebo klikněte pro výběr</div>
-            <div style="font-size:11px; pointer-events:none;">PDF, DOCX, TXT, MD · max 10 MB</div>
+            <div class="drop-zone-title">Přetáhněte soubory sem nebo klikněte pro výběr</div>
+            <div class="drop-zone-hint">PDF, DOCX, TXT, MD · max 10 MB</div>
         </div>
         <input type="file" id="aiMatInput" multiple accept=".pdf,.docx,.txt,.md"
             style="display:none;" onchange="handleAiMatSelect(event)" />
@@ -1076,7 +1143,7 @@ S
       </div>
 
       <div class="row" style="margin-top: 10px;">
-        <div style="flex: 1;">
+        <div class="grow-1">
           <label>Styl hodnocení:</label>
           <select id="aiScenarioGradingStyle" onchange="document.getElementById('aiScenarioMaxPointsWrapper').style.display = this.value !== 'none' ? 'block' : 'none'">
             <option value="equal">Rovnoměrně rozdělit body mezi úkoly</option>
@@ -1084,23 +1151,27 @@ S
             <option value="none">Bez bodů</option>
           </select>
         </div>
-        <div style="flex: 1;" id="aiScenarioMaxPointsWrapper">
+        <div class="grow-1" id="aiScenarioMaxPointsWrapper">
           <label>Maximum bodů:</label>
           <input type="number" id="aiScenarioMaxPoints" value="10" min="1" step="1" />
         </div>
-        <div style="flex: 2;"></div>
+        <div class="grow-2"></div>
       </div>
 
       <div class="row" style="margin-top: 10px;">
-        <div style="flex: 2;">
+        <div class="grow-2">
           <label>Lab template:</label>
           <select id="aiScenarioLabTemplate"></select>
         </div>
-        <div style="flex: 1;">
+        <div class="grow-1">
           <label>OS:</label>
-          <select id="aiScenarioRequiredOs"><option value="kali" selected>Kali Linux</option></select>
+          <select id="aiScenarioRequiredOs2">
+            <option value="kali" selected>Kali Linux (GUI)</option>
+            <option value="ubuntu">Ubuntu (GUI)</option>
+            <option value="none">Žádné virtuální prostředí</option>
+          </select>
         </div>
-        <div style="flex: 1;">
+        <div class="grow-1">
           <label>Počáteční obtížnost:</label>
           <select id="aiScenarioDifficulty">
             <option value="easy">Lehká</option>
@@ -1108,7 +1179,7 @@ S
             <option value="hard">Těžká</option>
           </select>
         </div>
-        <div style="flex: 1;">
+        <div class="grow-1">
           <label>Adaptivita:</label>
           <select id="aiScenarioAdaptive">
             <option value="true" selected>Zapnuta</option>
@@ -1118,34 +1189,34 @@ S
       </div>
 
       <div class="row" style="margin-top: 10px;">
-        <div style="flex: 2;">
+        <div class="grow-2">
           <label>Témata / tagy <span style="font-weight:normal; color:var(--text-muted);">(oddělte čárkou)</span>:</label>
           <input type="text" id="aiScenarioTags" placeholder="Např. nmap, reconnaissance, firewall" />
         </div>
-        <div style="flex: 2;">
+        <div class="grow-2">
           <label>Povolené nástroje <span style="font-weight:normal; color:var(--text-muted);">(oddělte čárkou)</span>:</label>
           <input type="text" id="aiScenarioTools" placeholder="Např. nmap, netcat, curl" />
         </div>
       </div>
 
       <div class="row" style="margin-top: 10px;">
-        <div style="flex: 1;">
+        <div class="grow-1">
           <label>Termín odevzdání:</label>
           <input type="datetime-local" id="aiScenarioDeadline" onclick="this.showPicker?.()" style="width:100%;padding:6px 10px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-panel);color:var(--text-primary);font-size:13px;cursor:pointer;color-scheme:dark;" />
         </div>
-        <div style="flex: 1;">
+        <div class="grow-1">
           <label>Čas (min):</label>
           <input type="number" id="aiScenarioTimeLimit" value="60" min="10" step="5" />
         </div>
-        <div style="flex: 1;">
+        <div class="grow-1">
           <label>Podúkoly:</label>
-          <input type="number" id="aiScenarioSubtasks" value="3" min="1" step="1" />
+          <input type="number" id="aiScenarioSubtasks" value="3" min="1" step="1" oninput="window._updateQtypeHint && window._updateQtypeHint('create')" />
         </div>
-        <div style="flex: 1;">
+        <div class="grow-1">
           <label>Max. počet pokusů <span style="font-weight:normal; color:var(--text-muted);">(0 = neomezeno)</span>:</label>
           <input type="number" id="aiScenarioMaxAttempts" value="0" min="0" step="1" />
         </div>
-        <div style="flex: 1;">
+        <div class="grow-1">
           <label>Přeskakování podúkolů:</label>
           <select id="aiScenarioAllowSkip">
             <option value="true" selected>Povoleno</option>
@@ -1153,9 +1224,9 @@ S
           </select>
         </div>
         <div style="flex:1; display:flex; align-items:center; gap:8px; padding-top:18px;">
-          <input type="checkbox" id="aiScenarioAutoSubmit" style="width:16px; height:16px; accent-color:var(--primary,#3b82f6); cursor:pointer; flex-shrink:0;">
-          <label for="aiScenarioAutoSubmit" style="cursor:pointer; font-weight:500; margin:0; line-height:1.3;">Bez hodnocení učitele
-            <span style="display:block; font-size:11px; color:var(--text-muted); font-weight:normal;">Body se uloží automaticky, student může začit další pokus</span>
+          <input type="checkbox" id="aiScenarioAutoSubmit" class="cb-sm">
+          <label for="aiScenarioAutoSubmit" class="label-click">Bez hodnocení učitele
+            <span class="sub-label">Body se uloží automaticky, student může začit další pokus</span>
           </label>
         </div>
       </div>
@@ -1168,13 +1239,13 @@ S
       <div id="aiScenarioStatus" style="font-weight: bold; margin-top: 10px;"></div>
     </div>
 
-    <div class="panel main-panel" id="panel-results" style="border: 2px solid #2563eb;">
+    <div class="panel main-panel panel-accent" id="panel-results">
       <h2>Výsledky studentů</h2>
       <div class="row" style="flex-wrap: wrap; align-items: flex-end; margin-bottom: 15px;">
-        <div style="flex: 1; min-width: 200px;"><label style="display:block; margin-bottom:4px;">Kurz:</label><select id="attemptsCourseSelect" onchange="loadAttemptsScenarios(true); saveAttemptsFilters(); loadAttempts(true);" style="margin: 0;"><option value="">— Vyberte kurz —</option></select></div>
-        <div style="flex: 1; min-width: 200px;"><label style="display:block; margin-bottom:4px;">Zadání:</label><select id="attemptsScenarioSelect" onchange="populateAttemptsGroups(); filterAttemptsLocally(); saveAttemptsFilters();" style="margin: 0;"><option value="">— Vyberte kurz —</option></select></div>
-        <div style="flex: 1; min-width: 200px;"><label style="display:block; margin-bottom:4px;">Filtr skupiny:</label><select id="attemptsGroupFilter" onchange="filterAttemptsLocally(); saveAttemptsFilters();" style="margin: 0;"><option value="">— Vyberte kurz —</option></select></div>
-        <div style="flex: 1; min-width: 200px;"><label style="display:block; margin-bottom:4px;">Hledat uživatele:</label><input type="text" id="attemptsUserSearch" placeholder="Jméno nebo email..." onkeyup="debounceLoadAttempts()" style="margin: 0;" /></div>
+        <div class="filter-col"><label class="label-block">Kurz:</label><select id="attemptsCourseSelect" onchange="loadAttemptsScenarios(true); saveAttemptsFilters(); loadAttempts(true);" style="margin: 0;"><option value="">— Vyberte kurz —</option></select></div>
+        <div class="filter-col"><label class="label-block">Zadání:</label><select id="attemptsScenarioSelect" onchange="populateAttemptsGroups(); filterAttemptsLocally(); saveAttemptsFilters();" style="margin: 0;"><option value="">— Vyberte kurz —</option></select></div>
+        <div class="filter-col"><label class="label-block">Filtr skupiny:</label><select id="attemptsGroupFilter" onchange="filterAttemptsLocally(); saveAttemptsFilters();" style="margin: 0;"><option value="">— Vyberte kurz —</option></select></div>
+        <div class="filter-col"><label class="label-block">Hledat uživatele:</label><input type="text" id="attemptsUserSearch" placeholder="Jméno nebo email..." onkeyup="debounceLoadAttempts()" style="margin: 0;" /></div>
         <div style="flex: 0.5; min-width: 150px;"><button onclick="loadAttempts(true)" style="width: 100%; margin: 0;">Aktualizovat</button></div>
       </div>
       <table>
@@ -1197,25 +1268,25 @@ S
     </div>
 
     <!-- ===== ANALYTIKA & AI PŘEHLEDY ===== -->
-    <div class="panel main-panel" id="panel-analytics" style="border: 2px solid #2563eb;">
+    <div class="panel main-panel panel-accent" id="panel-analytics">
       <h2>Analytika &amp; AI Přehledy</h2>
 
       <!-- Filtry -->
       <div class="row" style="flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px; gap: 10px;">
         <div style="flex: 1; min-width: 180px;">
-          <label style="display:block; margin-bottom:4px;">Kurz:</label>
+          <label class="label-block">Kurz:</label>
           <select id="analyticsCourseSel" onchange="analyticsOnCourseChange()" style="margin:0;"><option value="">Načítám kurzy…</option></select>
         </div>
         <div style="flex: 1; min-width: 180px;">
-          <label style="display:block; margin-bottom:4px;">Zadání (volitelné):</label>
+          <label class="label-block">Zadání (volitelné):</label>
           <select id="analyticsScenarioSel" onchange="analyticsOnScenarioChange()" style="margin:0;"><option value="">— Vyberte kurz —</option></select>
         </div>
-        <div style="flex: 1; min-width: 180px;">
-          <label style="display:block; margin-bottom:4px;">Skupina (volitelné):</label>
-          <select id="analyticsGroupSel" style="margin:0;"><option value="">— Vyberte kurz —</option></select>
+        <div style="flex: 0 0 auto;">
+          <label class="label-block">Skupina (volitelné):</label>
+          <select id="analyticsGroupSel" style="margin:0; width:auto;"><option value="">— Všechny skupiny —</option></select>
         </div>
         <div style="flex: 0.7; min-width: 140px;">
-          <label style="display:block; margin-bottom:4px;">Časové období:</label>
+          <label class="label-block">Časové období:</label>
           <select id="analyticsDaysSel" style="margin:0;">
             <option value="7">Posledních 7 dní</option>
             <option value="30" selected>Posledních 30 dní</option>
@@ -1223,71 +1294,70 @@ S
             <option value="365">Celý rok</option>
           </select>
         </div>
-        <div style="flex: 0.5; min-width: 140px; display:flex; align-items:flex-end; gap:8px;">
-          <button id="analyticsLoadBtn" onclick="analyticsLoadAll()" style="margin:0; width:100%;">
+        <div style="flex: 0 0 auto; display:flex; align-items:flex-end;">
+          <button id="analyticsLoadBtn" onclick="analyticsLoadAll()" style="margin:0; white-space:nowrap;">
             Načíst data
-            <span id="analyticsSpinner" style="display:none; margin-left:6px;">⏳</span>
           </button>
         </div>
-        <div style="flex: 0.4; min-width: 120px; display:flex; align-items:flex-end;">
-          <button onclick="analyticsExportCSV()" style="margin:0; width:100%; background: var(--bg-status); color: var(--text-primary); border: 1px solid var(--border-color);">Exportovat CSV</button>
+        <div style="flex: 0 0 auto; display:flex; align-items:flex-end;">
+          <button onclick="analyticsExportExcel()" style="margin:0; white-space:nowrap;">Exportovat sešit .xlsx</button>
         </div>
       </div>
 
       <!-- Nadpis načtených dat -->
-      <div id="analyticsDataHeader" style="display:none;font-size:16px;font-weight:bold;color:var(--text-primary);padding:10px 10px;border-left:3px solid #3b82f6;margin-bottom:14px;background:var(--bg-status);border-radius:6px;"></div>
+      <div id="analyticsDataHeader" style="display:none;font-size:16px;font-weight:bold;color:var(--text-primary);padding:10px 10px;border-left:3px solid #3e67a8;margin-bottom:14px;background:var(--bg-status);border-radius:6px;"></div>
 
       <!-- KPI karty -->
       <div class="row" style="flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
-        <div style="flex:1; min-width:130px; background:var(--bg-status); border-radius:10px; padding:14px 16px; text-align:center; border: 1px solid var(--border-color);">
-          <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px;">Průměrné skóre</div>
-          <div id="kpiAvgScore" style="font-size:26px; font-weight:bold; color:#3b82f6; margin-top:4px;">—</div>
+        <div class="stat-card">
+          <div class="stat-card-label">Průměrné skóre</div>
+          <div id="kpiAvgScore" style="font-size:26px; font-weight:bold; color:#3e67a8; margin-top:4px;">—</div>
         </div>
-        <div style="flex:1; min-width:130px; background:var(--bg-status); border-radius:10px; padding:14px 16px; text-align:center; border: 1px solid var(--border-color);">
-          <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px;">Úspěšnost</div>
+        <div class="stat-card">
+          <div class="stat-card-label">Úspěšnost</div>
           <div id="kpiSuccessRate" style="font-size:26px; font-weight:bold; color:#10b981; margin-top:4px;">—</div>
         </div>
-        <div style="flex:1; min-width:130px; background:var(--bg-status); border-radius:10px; padding:14px 16px; text-align:center; border: 1px solid var(--border-color);">
-          <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px;">Odevzdání celkem</div>
+        <div class="stat-card">
+          <div class="stat-card-label">Odevzdání celkem</div>
           <div id="kpiTotalSubs" style="font-size:26px; font-weight:bold; color:var(--text-primary); margin-top:4px;">—</div>
         </div>
-        <div style="flex:1; min-width:130px; background:var(--bg-status); border-radius:10px; padding:14px 16px; text-align:center; border: 1px solid var(--border-color);">
-          <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px;">Ohodnoceno</div>
+        <div class="stat-card">
+          <div class="stat-card-label">Ohodnoceno</div>
           <div id="kpiEvaluated" style="font-size:26px; font-weight:bold; color:var(--text-primary); margin-top:4px;">—</div>
         </div>
-        <div style="flex:1; min-width:130px; background:var(--bg-status); border-radius:10px; padding:14px 16px; text-align:center; border: 1px solid var(--border-color);">
-          <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px;">Medián skóre</div>
+        <div class="stat-card">
+          <div class="stat-card-label">Medián skóre</div>
           <div id="kpiMedianScore" style="font-size:26px; font-weight:bold; color:#60a5fa; margin-top:4px;">—</div>
         </div>
-        <div style="flex:1; min-width:130px; background:var(--bg-status); border-radius:10px; padding:14px 16px; text-align:center; border: 1px solid var(--border-color);">
-          <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px;">Prům. čas splnění</div>
+        <div class="stat-card">
+          <div class="stat-card-label">Prům. čas splnění</div>
           <div id="kpiAvgTime" style="font-size:26px; font-weight:bold; color:var(--text-primary); margin-top:4px;">—</div>
         </div>
       </div>
 
       <!-- Grafy – 4 grafy v gridu (2 sloupce) -->
-      <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 16px;">
+      <div id="analyticsChartsGrid" style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 16px;">
         <div style="background:var(--bg-status); border-radius:10px; padding:14px; border:1px solid var(--border-color);">
-          <div style="font-size:13px; font-weight:bold; margin-bottom:8px; color:var(--text-primary);">Rozložení skóre studentů</div>
+          <div class="chart-title">Rozložení skóre studentů</div>
           <div style="height:220px;"><canvas id="chartBar"></canvas></div>
         </div>
         <div style="background:var(--bg-status); border-radius:10px; padding:14px; border:1px solid var(--border-color);">
-          <div style="font-size:13px; font-weight:bold; margin-bottom:8px; color:var(--text-primary);">Časy posledních pokusů</div>
+          <div class="chart-title">Časy posledních pokusů</div>
           <div style="height:220px;"><canvas id="chartLine"></canvas></div>
         </div>
         <div style="background:var(--bg-status); border-radius:10px; padding:14px; border:1px solid var(--border-color);">
-          <div style="font-size:13px; font-weight:bold; margin-bottom:8px; color:var(--text-primary);">Rozložení výkonu studentů</div>
+          <div class="chart-title">Rozložení výkonu studentů</div>
           <div style="height:220px;"><canvas id="chartPie"></canvas></div>
         </div>
         <div style="background:var(--bg-status); border-radius:10px; padding:14px; border:1px solid var(--border-color);">
-          <div style="font-size:13px; font-weight:bold; margin-bottom:8px; color:var(--text-primary);">Pokusy studentů</div>
+          <div class="chart-title">Pokusy studentů</div>
           <div style="height:220px;"><canvas id="chartAttempts"></canvas></div>
         </div>
       </div>
 
       <!-- Úspěšnost per krok – full-width pod grafy -->
-      <div style="background:var(--bg-status); border-radius:10px; padding:14px; border:1px solid var(--border-color); margin-bottom: 16px;">
-        <div style="font-size:13px; font-weight:bold; margin-bottom:8px; color:var(--text-primary);">Úspěšnost per krok</div>
+      <div id="stepsChartSection" style="background:var(--bg-status); border-radius:10px; padding:14px; border:1px solid var(--border-color); margin-bottom: 16px;">
+        <div id="stepsPanelTitle" class="chart-title">Úspěšnost per krok</div>
         <div id="stepsPanelWrapper" style="overflow-y:auto; max-height:500px; min-height:220px;">
           <canvas id="chartRadar"></canvas>
           <canvas id="chartQtype" style="display:none;"></canvas>
@@ -1330,7 +1400,7 @@ S
     <!-- ===== KONEC ANALYTIKA ===== -->
 
     <!-- ===== LAB IMAGES ===== -->
-    <div class="panel main-panel" id="panel-labtemplates" style="display: none; border: 2px solid #2563eb;">
+    <div class="panel main-panel panel-accent" id="panel-labtemplates" style="display: none;">
       <h2>Lab Images - zatím nefunkční</h2>
       <p style="color: var(--text-muted); margin-top: -10px; margin-bottom: 20px;">Vytvořte vlastní lab prostředí s předinstalovanými soubory a init scriptem. Lab images se zobrazují v dropdown při vytváření zadání.</p>
 
@@ -1338,11 +1408,11 @@ S
       <div style="background: var(--bg-status); padding: 16px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 24px;">
         <h3 style="margin-top: 0; margin-bottom: 14px; color: var(--text-heading);">Vytvořit nový Lab Image</h3>
         <div class="row" style="gap: 12px;">
-          <div style="flex: 2;">
+          <div class="grow-2">
             <label><strong>Název</strong> (zobrazí se v dropdown):</label>
             <input type="text" id="customLabTitle" placeholder="Např. Malware Analysis Lab" style="margin-top: 5px;" />
           </div>
-          <div style="flex: 1;">
+          <div class="grow-1">
             <label><strong>Base image:</strong></label>
             <select id="customLabBaseImage" style="margin-top: 5px;">
               <option value="kali">Kali Linux (GUI)</option>
@@ -1377,18 +1447,17 @@ S
         <div style="margin-top: 12px;">
           <label><strong>Soubory do labu</strong> (nahrají se do Blob Storage, init script je může stáhnout, max 50 MB celkem):</label>
           <input type="file" id="customLabFiles" multiple style="display:none;" onchange="updateCustomLabDropZoneLabel()" />
-          <div id="customLabDropZone"
-              style="border:2px dashed var(--border-color);border-radius:8px;padding:22px 16px;text-align:center;color:var(--text-muted);font-size:13px;cursor:pointer;transition:background 0.2s,border-color 0.2s;margin-top:8px;user-select:none;"
+          <div id="customLabDropZone" class="drop-zone" style="margin-top:8px;"
               ondragenter="event.preventDefault(); event.stopPropagation();"
-              ondragover="event.preventDefault(); event.stopPropagation(); this.style.background='var(--bg-card-hover)'; this.style.borderColor='var(--btn-primary)';"
-              ondragleave="this.style.background=''; this.style.borderColor='';"
-              ondrop="handleCustomLabFileDrop(event); this.style.background=''; this.style.borderColor='';"
+              ondragover="event.preventDefault(); event.stopPropagation(); this.classList.add('drag-over');"
+              ondragleave="this.classList.remove('drag-over');"
+              ondrop="handleCustomLabFileDrop(event); this.classList.remove('drag-over');"
               onclick="document.getElementById('customLabFiles').click()">
-            <div style="margin-bottom:8px;pointer-events:none;">
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><polyline points="9 14 12 17 15 14"/></svg>
+            <div class="drop-zone-icon">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--btn-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><polyline points="9 14 12 17 15 14"/></svg>
             </div>
-            <div id="customLabDropZoneLabel" style="font-weight:bold;color:var(--text-primary);margin-bottom:4px;pointer-events:none;">Přetáhněte soubory sem nebo klikněte pro výběr</div>
-            <div style="font-size:11px;pointer-events:none;">Libovolné soubory · max 50 MB celkem</div>
+            <div id="customLabDropZoneLabel" class="drop-zone-title">Přetáhněte soubory sem nebo klikněte pro výběr</div>
+            <div class="drop-zone-hint">Libovolné soubory · max 50 MB celkem</div>
           </div>
         </div>
         <div style="margin-top: 14px; display: flex; justify-content: flex-end; gap: 10px; align-items: center;">
@@ -1408,14 +1477,14 @@ S
     </div>
     <!-- ===== KONEC LAB IMAGES ===== -->
 
-    <div class="panel" id="artifactPanel" style="display: none; border: 2px solid #2563eb;">
+    <div class="panel" id="artifactPanel" style="display: none; border: 2px solid #3e67a8;">
       <h2>5. Detail odevzdaného artefaktu</h2>
       <p id="artifactMetadata" style="font-weight: bold;"></p>
       <pre id="artifactOutput">Načítám...</pre>
       <button onclick="document.getElementById('artifactPanel').style.display='none'">Zavřít detail</button>
     </div>
 
-    <div class="panel" id="evaluationPanel" style="display: none; border: 2px solid #2563eb; background: var(--bg-panel);">
+    <div class="panel" id="evaluationPanel" style="display: none; border: 2px solid #3e67a8; background: var(--bg-panel);">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
         <h2 style="margin:0;">Hodnocení pokusu</h2>
         <span onclick="document.getElementById('evaluationPanel').style.display='none'" style="cursor:pointer; font-size:26px; color:#6b7280; line-height:1;">&times;</span>
@@ -1447,7 +1516,7 @@ S
       <button id="saveEvaluationBtn" onclick="saveEvaluation()">Uložit hodnocení</button>
     </div>
   <div id="studentDetailModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 100;">
-    <div class="panel" style="width: 500px; max-width: 95%; border: 2px solid #3b82f6; max-height: 90vh; overflow-y: auto;">
+    <div class="panel" style="width: 500px; max-width: 95%; border: 2px solid #3e67a8; max-height: 90vh; overflow-y: auto;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
         <h3 id="detailStudentName" style="margin:0;">Detail uživatele</h3>
         <span onclick="document.getElementById('studentDetailModal').style.display='none'" style="cursor: pointer; font-size: 26px; color: #6b7280; line-height: 1; margin-top: -5px;">&times;</span>
@@ -1455,7 +1524,7 @@ S
       <p class="muted" id="detailStudentEmail" style="margin-top: -10px;"></p>
       <div id="detailStudentRole" class="badge" style="background: #e5e7eb; color: #374151; display:inline-block; margin-bottom:10px;"></div>
       
-      <hr style="border:none; border-top:1px solid #e5e7eb; margin: 15px 0;">
+      <hr class="hr-divider" style="margin: 15px 0;">
 
       <h4 style="margin-bottom: 5px;">Členství ve skupinách</h4>
       <div id="detailStudentGroups" style="margin-bottom: 10px; font-size: 14px;"></div>
@@ -1473,14 +1542,14 @@ S
     </div>
   </div>
   <div id="groupDetailModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 101;">
-    <div class="panel" style="width: 500px; max-width: 95%; border: 2px solid #2563eb; max-height: 90vh; overflow-y: auto;">
+    <div class="panel" style="width: 500px; max-width: 95%; border: 2px solid #3e67a8; max-height: 90vh; overflow-y: auto;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <h3 id="detailGroupName" style="margin:0; color: #3b82f6;">Detail skupiny</h3>
+        <h3 id="detailGroupName" style="margin:0; color: #3e67a8;">Detail skupiny</h3>
         <span onclick="document.getElementById('groupDetailModal').style.display='none'" style="cursor: pointer; font-size: 26px; color: #6b7280; line-height: 1; margin-top: -5px;">&times;</span>
       </div>
       <p class="muted">Správa hromadného přiřazování pro členy skupiny.</p>
       
-      <hr style="border:none; border-top:1px solid #e5e7eb; margin: 15px 0;">
+      <hr class="hr-divider" style="margin: 15px 0;">
 
       <h4>Členové skupiny</h4>
       <div id="groupMembersList" style="max-height: 150px; overflow-y: auto; font-size: 13px; margin-bottom: 20px;"></div>
@@ -1489,15 +1558,15 @@ S
         <h4 style="margin-top: 0;">Hromadné zapsání do kurzu</h4>
         <p class="muted" style="font-size: 12px; margin-top: -10px;">Všichni výše vypsaní členové budou zapsáni do vybraného kurzu.</p>
         <div style="display:flex; gap:10px;">
-          <select id="groupBulkCourseSelect" style="margin:0; flex:1; font-size: 13px;"></select>
-          <button class="btn-small" style="background: #3b82f6;" onclick="assignCourseToGroup()">Zapsat skupinu</button>
+          <select id="groupBulkCourseSelect" class="select-flex"></select>
+          <button class="btn-small" style="background:var(--btn-primary);" onclick="assignCourseToGroup()">Zapsat skupinu</button>
         </div>
         <div id="bulkStatus" style="font-size: 12px; margin-top: 10px; font-weight: bold;"></div>
       </div>
     </div>
   </div>
   <div id="courseDetailModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 102;">
-    <div class="panel" style="width: 650px; max-width: 95%; border: 2px solid #2563eb; max-height: 90vh; overflow-y: hidden; display: flex; flex-direction: column; padding: 0;">
+    <div class="panel" style="width: 650px; max-width: 95%; border: 2px solid #3e67a8; max-height: 90vh; overflow-y: hidden; display: flex; flex-direction: column; padding: 0;">
       
       <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: #fff; border-bottom: 1px solid #e5e7eb; border-radius: 12px 12px 0 0;">
         <h3 style="margin:0; color: #d97706;" id="courseDetailHeaderTitle">Správa kurzu</h3>
@@ -1530,18 +1599,18 @@ S
             <button id="btnRenameCourse" class="btn-small" style="background:#f59e0b;" onclick="saveCourseSettings()">Uložit změny</button>
           </div>
 
-          <hr style="border:none; border-top:1px solid #e5e7eb; margin: 20px 0;">
+          <hr class="hr-divider" style="margin: 20px 0;">
           
           <h4 style="margin-bottom: 5px;">Správci kurzu (Učitelé)</h4>
           <div id="detailCourseManagers" style="max-height: 150px; overflow-y: auto; background: #f9fafb; padding: 10px; border-radius: 6px; font-size: 13px; margin-bottom: 10px; border: 1px solid #e5e7eb;">
             Načítám...
           </div>
           <div id="addManagerRow" style="display:flex; gap:10px; margin-bottom: 10px;">
-            <select id="courseDetailAddTeacherSelect" style="margin:0; flex:1; font-size: 13px;"></select>
-            <button class="btn-small" style="background: #2563eb;" onclick="addTeacherToCourseFromDetail()">Přidat správce</button>
+            <select id="courseDetailAddTeacherSelect" class="select-flex"></select>
+            <button class="btn-small" style="background:var(--btn-primary);" onclick="addTeacherToCourseFromDetail()">Přidat správce</button>
           </div>
 
-          <hr style="border:none; border-top:1px solid #e5e7eb; margin: 20px 0;">
+          <hr class="hr-divider" style="margin: 20px 0;">
           <div id="deleteCourseRow" style="display:flex; justify-content: flex-end;">
             <button class="btn-small" style="background: #dc2626;" onclick="deleteCourseFromDetail()">Smazat celý kurz</button>
           </div>
@@ -1557,18 +1626,17 @@ S
         <div id="courseTab4" style="display: none;">
           <h4 style="margin-top:0; margin-bottom:12px; color:var(--text-primary);">Studijní materiály kurzu</h4>
 
-          <div id="matDropZone"
-              style="border:2px dashed var(--border-color); border-radius:8px; padding:22px 16px; text-align:center; color:var(--text-muted); font-size:13px; cursor:pointer; transition:background 0.2s, border-color 0.2s; margin-bottom:12px; user-select:none;"
+          <div id="matDropZone" class="drop-zone" style="margin-bottom:12px;"
               ondragenter="event.preventDefault(); event.stopPropagation();"
-              ondragover="event.preventDefault(); event.stopPropagation(); this.style.background='var(--bg-card-hover)'; this.style.borderColor='var(--btn-primary)';"
-              ondragleave="this.style.background=''; this.style.borderColor='var(--border-color)';"
-              ondrop="handleMatDrop(event); this.style.background=''; this.style.borderColor='var(--border-color)';"
+              ondragover="event.preventDefault(); event.stopPropagation(); this.classList.add('drag-over');"
+              ondragleave="this.classList.remove('drag-over');"
+              ondrop="handleMatDrop(event); this.classList.remove('drag-over');"
               onclick="document.getElementById('matFileInput').click()">
-            <div style="margin-bottom:8px; pointer-events:none;">
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><polyline points="9 14 12 17 15 14"/></svg>
+            <div class="drop-zone-icon">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--btn-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><polyline points="9 14 12 17 15 14"/></svg>
             </div>
-            <div style="font-weight:bold; color:var(--text-primary); margin-bottom:4px; pointer-events:none;">Přetáhněte soubory sem nebo klikněte pro výběr</div>
-            <div style="font-size:11px; pointer-events:none;">PDF, DOCX, PPTX, PNG, JPG, MP4, TXT, MD · max 20 MB</div>
+            <div class="drop-zone-title">Přetáhněte soubory sem nebo klikněte pro výběr</div>
+            <div class="drop-zone-hint">PDF, DOCX, PPTX, PNG, JPG, MP4, TXT, MD · max 20 MB</div>
           </div>
           <input type="file" id="matFileInput" multiple accept=".pdf,.docx,.pptx,.png,.jpg,.jpeg,.mp4,.txt,.md"
               style="display:none;" onchange="handleMatFileSelect(event)" />
@@ -1585,29 +1653,29 @@ S
             <div class="muted" style="padding:6px;">Načítám skupiny v kurzu...</div>
           </div>
           <div id="addGroupRow" style="display:none; gap:10px; margin-bottom: 20px;">
-            <select id="courseDetailAddGroupSelect" style="margin:0; flex:1; font-size: 13px;"></select>
-            <button class="btn-small" style="background: #3b82f6;" onclick="addGroupToCourseFromDetail()">Zapsat celou skupinu</button>
+            <select id="courseDetailAddGroupSelect" class="select-flex"></select>
+            <button class="btn-small" style="background:var(--btn-primary);" onclick="addGroupToCourseFromDetail()">Zapsat celou skupinu</button>
           </div>
 
-          <hr style="border:none; border-top:1px solid #e5e7eb; margin: 15px 0;">
+          <hr class="hr-divider" style="margin: 15px 0;">
 
           <h4 style="margin-bottom: 5px;">Kompletní seznam studentů</h4>
           <div id="detailCourseStudents" style="font-size: 13px; margin-bottom: 10px; max-height: 200px; overflow-y: auto;">
             <div class="muted" style="padding:6px;">Načítám seznam studentů...</div>
           </div>
           <div id="addStudentRow" style="display:none; gap:10px; margin-bottom: 10px;">
-            <select id="courseDetailAddStudentSelect" style="margin:0; flex:1; font-size: 13px;"></select>
-            <button class="btn-small" style="background: #2563eb;" onclick="addStudentToCourseFromDetail()">Přidat studenta</button>
+            <select id="courseDetailAddStudentSelect" class="select-flex"></select>
+            <button class="btn-small" style="background:var(--btn-primary);" onclick="addStudentToCourseFromDetail()">Přidat studenta</button>
           </div>
         </div>
 
       </div>
     </div>
   </div><div id="scenarioDetailModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 103;">
-      <div class="panel" style="width: 560px; max-width: 95%; border: 2px solid #2563eb; max-height: 90vh; overflow-y: hidden; display: flex; flex-direction: column; padding: 0;">
+      <div class="panel" style="width: 560px; max-width: 95%; border: 2px solid #3e67a8; max-height: 90vh; overflow-y: hidden; display: flex; flex-direction: column; padding: 0;">
 
         <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid var(--border-color); background: var(--bg-status);">
-          <h3 style="margin:0; color: #2563eb;">Správa zadání</h3>
+          <h3 style="margin:0; color: #3e67a8;">Správa zadání</h3>
           <span onclick="document.getElementById('scenarioDetailModal').style.display='none'" style="cursor: pointer; font-size: 26px; color: #6b7280; line-height: 1; margin-top: -5px;">&times;</span>
         </div>
 
@@ -1633,11 +1701,11 @@ S
               Načítám...
             </div>
             <div id="addScenarioManagerRow" style="display:flex; gap:10px; margin-bottom: 15px;">
-              <select id="scenarioDetailAddTeacherSelect" style="margin:0; flex:1; font-size: 13px;"></select>
-              <button class="btn-small" style="background: #2563eb;" onclick="addTeacherToScenarioFromDetail()">Přidat správce</button>
+              <select id="scenarioDetailAddTeacherSelect" class="select-flex"></select>
+              <button class="btn-small" style="background:var(--btn-primary);" onclick="addTeacherToScenarioFromDetail()">Přidat správce</button>
             </div>
             
-            <hr style="border:none; border-top:1px solid var(--border-color); margin: 20px 0;">
+            <hr class="hr-divider" style="margin: 20px 0;">
             
             <h4 style="margin-top:0; color: var(--text-primary);">Přiřazené skupiny (Viditelnost zadání)</h4>
             <p style="font-size: 11px; color: var(--text-muted); margin-top: -10px; margin-bottom: 10px;">Skupiny s odebraným přístupem toto zadání neuvidí.</p>
@@ -1645,17 +1713,17 @@ S
               Načítám...
             </div>
             <div id="addScenarioGroupRow" style="display:flex; gap:10px; margin-bottom: 15px;">
-                <select id="scenarioDetailAddGroupSelect" style="margin:0; flex:1; font-size: 13px;"></select>
-                <button class="btn-small" style="background: #2563eb;" onclick="addGroupToScenarioFromDetail()">Přiřadit skupinu</button>
+                <select id="scenarioDetailAddGroupSelect" class="select-flex"></select>
+                <button class="btn-small" style="background:var(--btn-primary);" onclick="addGroupToScenarioFromDetail()">Přiřadit skupinu</button>
             </div>
 
-            <hr style="border:none; border-top:1px solid var(--border-color); margin: 20px 0;">
+            <hr class="hr-divider" style="margin: 20px 0;">
             <button class="btn-small" style="background: #dc2626; padding: 10px 20px; font-size: 14px; font-weight: bold; width: 100%; border-radius: 8px;" onclick="deleteScenarioFromSelectedCourse(activeDetailScenarioCourseId, activeDetailScenarioId, document.getElementById('detailScenarioTitleInput').value)">Smazat celé zadání</button>
         </div>
       </div>
     </div>
     <div id="allowAttemptModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 104;">
-    <div class="panel" style="width: 420px; max-width: 95%; border: 2px solid #2563eb; text-align: center;">
+    <div class="panel" style="width: 420px; max-width: 95%; border: 2px solid #3e67a8; text-align: center;">
         <h3 style="margin-top: 0; color: #059669;">Povolit další pokus</h3>
         <p id="allowAttemptText" style="font-size: 15px; margin-bottom: 15px; color: #374151;"></p>
         <div id="allowAttemptCopySection" style="display: none; background: var(--bg-status); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px dashed var(--border-color); text-align: left;">
@@ -1677,7 +1745,7 @@ S
         <p id="rgcQuestion" style="font-size: 15px; margin-bottom: 20px; color: #374151;"></p>
         <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
           <button class="btn-small" style="background: #dc2626;" onclick="executeRemoveWholeGroup()">Ano, odstranit všechny</button>
-          <button class="btn-small" style="background: #2563eb;" onclick="showSelectiveGroupRemove()">Ne, vybrat koho ponechat</button>
+          <button class="btn-small" style="background:var(--btn-primary);" onclick="showSelectiveGroupRemove()">Ne, vybrat koho ponechat</button>
           <button class="btn-small" style="background: #6b7280;" onclick="document.getElementById('removeGroupCourseModal').style.display='none'">Zrušit</button>
         </div>
       </div>
@@ -1727,6 +1795,8 @@ S
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="login.js"></script>
   <script src="teacher/ai-persona-templates.js"></script>
   <script src="teacher/teacher-utils.js"></script>
@@ -1743,3 +1813,10 @@ S
   <script src="theme.js"></script>
 </body>
 </html>
+
+
+
+
+
+
+

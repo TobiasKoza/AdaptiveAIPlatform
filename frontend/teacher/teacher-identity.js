@@ -1,4 +1,4 @@
-function deleteUser(userId) {
+﻿function deleteUser(userId) {
         const user = allLoadedUsers.find(u => u.user_id === userId);
         const userName = user ? (user.display_name || user.email) : userId;
 
@@ -110,7 +110,7 @@ function deleteUser(userId) {
             }
             
             // Uložíme si hesla do výpisu
-            successHtml += `<div style="font-size: 13px; margin-bottom: 2px;"><b>${escapeHtml(email)}</b>: heslo <span style="background:#eee; padding:1px 4px; border: 1px solid #ccc; font-family: monospace;">${data.tempPassword}</span></div>`;
+            successHtml += `<div style="font-size: 13px; margin-bottom: 2px; color: var(--text-primary);"><b>${escapeHtml(email)}</b>: heslo <span style="background:var(--bg-status); padding:1px 4px; border: 1px solid var(--border-color); font-family: monospace; color: var(--text-primary);">${data.tempPassword}</span></div>`;
           } catch {
               failCount++;
           }
@@ -128,7 +128,7 @@ function deleteUser(userId) {
 
           // Hesla se zobrazí pod formulářem a po 10 sekundách zmizí
           statusDiv.style.color = "green";
-          statusDiv.innerHTML = `<div style="max-height: 200px; overflow-y: auto; border: 1px solid #d1d5db; padding: 8px; border-radius: 6px; background: #fff; margin-top: 10px;">
+          statusDiv.innerHTML = `<div style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); padding: 8px; border-radius: 6px; background: var(--bg-card); margin-top: 10px;">
                                    <div style="margin-bottom: 8px; font-weight: bold; color: #059669;">Zde jsou přihlašovací údaje nově vytvořených studentů:</div>
                                    ${successHtml}
                                  </div>`;
@@ -239,7 +239,7 @@ function deleteUser(userId) {
                     <td class="muted" style="font-size: 11px;">Groups: ${groups}<br>Courses: ${courses}</td>
                     <td><span class="badge ${statusClass}">${statusLabel}</span></td>
                     <td style="white-space: nowrap;">
-                        <button class="btn-small" style="background:#3b82f6; margin-right:5px;" onclick="openStudentDetail('${u.user_id}')">Detail</button>
+                        <button class="btn-small" style="background:var(--btn-primary); margin-right:5px;" onclick="openStudentDetail('${u.user_id}')">Detail</button>
                         <button class="btn-small" style="background:#dc2626;" onclick="deleteUser('${u.user_id}')">Smazat</button>
                     </td>
                 </tr>`;
@@ -272,7 +272,7 @@ function deleteUser(userId) {
                     </td>
 
                     <td style="white-space: nowrap;">
-                        <button class="btn-small" style="background:#3b82f6; margin-right:5px;" onclick="openGroupDetail('${gid}')">Detail</button>
+                        <button class="btn-small" style="background:var(--btn-primary); margin-right:5px;" onclick="openGroupDetail('${gid}')">Detail</button>
                         <button class="btn-small" style="background:#dc2626;" onclick="deleteGroup('${gid}')">Smazat</button>
                     </td>
                 </tr>`;

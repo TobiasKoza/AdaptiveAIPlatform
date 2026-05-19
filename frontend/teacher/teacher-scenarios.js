@@ -1,4 +1,4 @@
-async function openScenarioDetail(scenarioId, courseId, title, description, instructions, deadline, maxAttempts, assignedBy, additionalManagers, hints, assignedToGroups, difficulty) {
+﻿async function openScenarioDetail(scenarioId, courseId, title, description, instructions, deadline, maxAttempts, assignedBy, additionalManagers, hints, assignedToGroups, difficulty) {
       activeDetailScenarioId = scenarioId;
       activeDetailScenarioCourseId = courseId;
       
@@ -487,44 +487,47 @@ function renderAttemptsTable(attempts, submissions, scenarios) {
       let gradeBadgeHtml = "-";
 
       if (isEvaluated) {
-        let gStyle = 'points';
-        let gMax = 10;
-        const gm = (scenario?.hints || "").match(/\[GRADING:\s*([a-zA-Z]+)\s*:?\s*(\d+)?\s*\]/i);
-        if (gm) {
-          gStyle = gm[1];
-          if (gm[2]) gMax = parseInt(gm[2], 10);
-        }
-        if (!gm || !gm[2]) {
-          const _fallback = Number(scenario?.maxPoints) || (scenario?.maxAttempts > 20 ? scenario.maxAttempts : 0);
-          if (_fallback > 0) gMax = _fallback;
-        }
-        let effectiveScore = a.score;
-        if (gStyle !== 'none' && (effectiveScore === null || effectiveScore === undefined || effectiveScore === "")) {
-            effectiveScore = 0;
-        }
-
-        const _threshM = (scenario?.hints || '').match(/\[PASS_THRESHOLD:(\d+)\]/);
-        const _thresh = _threshM ? parseInt(_threshM[1], 10) : null;
-
+        const _isEduType = (scenario?.hints || '').includes('[TYPE:ai_education]');
         evalStateText = "Vyhodnoceno";
 
-        if (_thresh !== null && effectiveScore !== null && effectiveScore !== undefined) {
-            const _pct = gStyle === 'percent' ? Number(effectiveScore) : (gMax > 0 ? Math.round((Number(effectiveScore) / gMax) * 100) : 0);
-            const _passed = _pct >= _thresh;
-            gradeBadgeHtml = `<span class="badge" style="background:${_passed ? '#22c55e' : '#ef4444'}; color:white; font-size:14px;">${_passed ? '✓' : '✗'}</span>`;
+        if (_isEduType) {
+            gradeBadgeHtml = `<span class="badge" style="background:#10b981; color:white;">Dokončeno</span>`;
         } else {
-            const _gradeFromScore = window.getGradeFromScore || function(score, info) {
-                if (score === null || score === undefined || score === "") return "-";
-                const s = Number(score);
-                const pct = info.style === 'percent' ? s : (info.max > 0 ? (s / info.max) * 100 : 0);
-                if (pct >= 90) return "A"; if (pct >= 80) return "B"; if (pct >= 70) return "C";
-                if (pct >= 60) return "D"; if (pct >= 50) return "E"; return "F";
-            };
-            const grade = _gradeFromScore(effectiveScore, { style: gStyle, max: gMax });
-            const gColor = grade === '-' ? '#6b7280' : (grade === 'F' ? '#ef4444' : '#22c55e');
-            gradeBadgeHtml = `<span class="badge" style="background:${gColor}; color:white;">${grade}</span>`;
+            let gStyle = 'points';
+            let gMax = 10;
+            const gm = (scenario?.hints || "").match(/\[GRADING:\s*([a-zA-Z]+)\s*:?\s*(\d+)?\s*\]/i);
+            if (gm) {
+              gStyle = gm[1];
+              if (gm[2]) gMax = parseInt(gm[2], 10);
+            }
+            if (!gm || !gm[2]) {
+              const _fallback = Number(scenario?.maxPoints) || (scenario?.maxAttempts > 20 ? scenario.maxAttempts : 0);
+              if (_fallback > 0) gMax = _fallback;
+            }
+            let effectiveScore = a.score;
+            if (gStyle !== 'none' && (effectiveScore === null || effectiveScore === undefined || effectiveScore === "")) {
+                effectiveScore = 0;
+            }
+            const _threshM = (scenario?.hints || '').match(/\[PASS_THRESHOLD:(\d+)\]/);
+            const _thresh = _threshM ? parseInt(_threshM[1], 10) : null;
+            if (_thresh !== null && effectiveScore !== null && effectiveScore !== undefined) {
+                const _pct = gStyle === 'percent' ? Number(effectiveScore) : (gMax > 0 ? Math.round((Number(effectiveScore) / gMax) * 100) : 0);
+                const _passed = _pct >= _thresh;
+                gradeBadgeHtml = `<span class="badge" style="background:${_passed ? '#22c55e' : '#ef4444'}; color:white; font-size:14px;">${_passed ? '✓' : '✗'}</span>`;
+            } else {
+                const _gradeFromScore = window.getGradeFromScore || function(score, info) {
+                    if (score === null || score === undefined || score === "") return "-";
+                    const s = Number(score);
+                    const pct = info.style === 'percent' ? s : (info.max > 0 ? (s / info.max) * 100 : 0);
+                    if (pct >= 90) return "A"; if (pct >= 80) return "B"; if (pct >= 70) return "C";
+                    if (pct >= 60) return "D"; if (pct >= 50) return "E"; return "F";
+                };
+                const grade = _gradeFromScore(effectiveScore, { style: gStyle, max: gMax });
+                const gColor = grade === '-' ? '#6b7280' : (grade === 'F' ? '#ef4444' : '#22c55e');
+                gradeBadgeHtml = `<span class="badge" style="background:${gColor}; color:white;">${grade}</span>`;
+            }
         }
-        evalBtnHtml = `<button class="btn-small" style="background:#3b82f6; transition: filter 0.15s, transform 0.1s;" onmouseover="this.style.filter='brightness(1.15)'" onmouseout="this.style.filter=''" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'" onclick="openEvaluation('${a.attemptId}')">Upravit hodnocení</button>`;
+        evalBtnHtml = `<button class="btn-small" style="background:var(--btn-primary); transition: filter 0.15s, transform 0.1s;" onmouseover="this.style.filter='brightness(1.15)'" onmouseout="this.style.filter=''" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'" onclick="openEvaluation('${a.attemptId}')">Upravit hodnocení</button>`;
       } else if (evalStateText === "Čeká na odevzdání" || evalStateText === "Rozpracováno" || evalStateText === "Založeno") {
         // Tlačítko skryjeme, dokud student neodevzdá řešení
         evalBtnHtml = ``; 
@@ -730,7 +733,7 @@ async function loadAttempts(forceRefresh = false) {
     async function loadScenarioGroupsSimpleUI(courseId, assignedToGroups) {
         const groupsDiv = document.getElementById('detailScenarioGroupsSimple');
         const addRow = document.getElementById('addScenarioGroupRow');
-        if (addRow) addRow.style.display = 'none'; // dropdown nepotřebujeme
+        if (addRow) addRow.style.display = 'none';
 
         // 1. Načteme živá data členů kurzu
         let allCourseGroups = [];
@@ -754,9 +757,14 @@ async function loadAttempts(forceRefresh = false) {
             allCourseGroups = Array.from(courseGroupIds);
         } catch { }
 
-        // 2. Blacklist = skupiny BEZ přístupu k tomuto zadání
-        const hiddenArr = (assignedToGroups || "").split(',')
+        // Uložíme seznam skupin pro use v remove/restore funkcích
+        currentOpenScenarioParams.allCourseGroupIds = allCourseGroups;
+
+        // 2. WHITELIST: prázdné = všichni vidí, HIDDEN_FROM_ALL = nikdo nevidí
+        const isHiddenFromAll = (assignedToGroups || "") === "HIDDEN_FROM_ALL";
+        const allowedArr = isHiddenFromAll ? [] : (assignedToGroups || "").split(',')
             .map(x => x.trim()).filter(x => x.length > 0);
+        const everyoneSeesIt = !isHiddenFromAll && allowedArr.length === 0;
 
         // 3. Zobrazíme VŠECHNY skupiny kurzu s tlačítky
         if (allCourseGroups.length === 0) {
@@ -765,7 +773,7 @@ async function loadAttempts(forceRefresh = false) {
             groupsDiv.innerHTML = allCourseGroups.map(gid => {
                 const g = allLoadedGroups.find(gr => getGroupId(gr) === gid);
                 const gName = g ? getGroupTitle(g) : gid;
-                const hasAccess = !hiddenArr.includes(gid);
+                const hasAccess = everyoneSeesIt || allowedArr.includes(gid);
 
                 return `
                 <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-bottom:1px solid var(--border-color); background:var(--bg-panel);">
@@ -775,7 +783,7 @@ async function loadAttempts(forceRefresh = false) {
                             ? `<button class="btn-small" style="background:#dc2626; padding:4px 10px; font-size:11px;"
                                 onclick="removeGroupAccessFromScenario('${escapeJsString(gid)}')">Odebrat přístup</button>`
                             : `<button class="btn-small" style="background:#10b981; padding:4px 10px; font-size:11px;"
-                                onclick="restoreGroupAccessToScenario('${escapeJsString(gid)}')">Obnovit přístup</button>`
+                                onclick="restoreGroupAccessToScenario('${escapeJsString(gid)}')">Přidat přístup</button>`
                         }
                     </div>
                 </div>`;
@@ -783,18 +791,17 @@ async function loadAttempts(forceRefresh = false) {
         }
     }
 
-    async function updateScenarioGroupsSimple(newHiddenArray, successMessage) {
-        const finalStr = newHiddenArray.length > 0 ? newHiddenArray.join(",") : "";
+    async function updateScenarioGroupsSimple(newGroupsStr, successMessage) {
         try {
             const res = await fetch(`${API_BASE}/courses/${activeDetailScenarioCourseId}/scenarios/${activeDetailScenarioId}`, {
                 method: "PUT", headers: getHeaders(),
-                body: JSON.stringify({ assigned_to_groups: finalStr })
+                body: JSON.stringify({ assigned_to_groups: newGroupsStr })
             });
             if (!res.ok) throw new Error(await res.text());
-            currentOpenScenarioParams.assignedToGroups = finalStr;
+            currentOpenScenarioParams.assignedToGroups = newGroupsStr;
             await loadScenarios();
             if (document.getElementById("scenarioDetailModal").style.display !== "none") {
-                loadScenarioGroupsSimpleUI(activeDetailScenarioCourseId, finalStr);
+                loadScenarioGroupsSimpleUI(activeDetailScenarioCourseId, newGroupsStr);
             }
             if (successMessage) showToast(successMessage);
         } catch (err) {
@@ -806,20 +813,38 @@ async function loadAttempts(forceRefresh = false) {
         const g = allLoadedGroups.find(gr => getGroupId(gr) === groupId);
         const gName = g ? getGroupTitle(g) : groupId;
         showToast(`Měním přístup pro skupinu ${gName}...`);
-        let arr = (currentOpenScenarioParams.assignedToGroups || "").split(",")
-            .map(s => s.trim()).filter(x => x);
-        if (!arr.includes(groupId)) arr.push(groupId);
-        updateScenarioGroupsSimple(arr, `Přístup skupiny ${gName} k zadání byl odebrán.`);
+        const current = currentOpenScenarioParams.assignedToGroups || "";
+        const allGroupIds = currentOpenScenarioParams.allCourseGroupIds || [];
+        let arr;
+        if (current === "" || current === "HIDDEN_FROM_ALL") {
+            // "" = všichni vidí → odebrání = všichni ostatní
+            arr = allGroupIds.filter(id => id !== groupId);
+        } else {
+            arr = current.split(",").map(s => s.trim()).filter(x => x && x !== groupId);
+        }
+        const finalStr = arr.length === 0 ? "HIDDEN_FROM_ALL" : arr.join(",");
+        updateScenarioGroupsSimple(finalStr, `Přístup skupiny ${gName} k zadání byl odebrán.`);
     };
 
     window.restoreGroupAccessToScenario = function(groupId) {
         const g = allLoadedGroups.find(gr => getGroupId(gr) === groupId);
         const gName = g ? getGroupTitle(g) : groupId;
         showToast(`Měním přístup pro skupinu ${gName}...`);
-        let arr = (currentOpenScenarioParams.assignedToGroups || "").split(",")
-            .map(s => s.trim()).filter(x => x);
-        arr = arr.filter(id => id !== groupId);
-        updateScenarioGroupsSimple(arr, `Přístup skupiny ${gName} k zadání byl obnoven.`);
+        const current = currentOpenScenarioParams.assignedToGroups || "";
+        const allGroupIds = currentOpenScenarioParams.allCourseGroupIds || [];
+        let arr;
+        if (current === "HIDDEN_FROM_ALL") {
+            arr = [groupId];
+        } else if (current === "") {
+            arr = []; // Tlačítko by nemělo být viditelné, ale zachováme stav
+        } else {
+            arr = current.split(",").map(s => s.trim()).filter(x => x);
+            if (!arr.includes(groupId)) arr.push(groupId);
+        }
+        // Pokud jsou nyní povoleny všechny skupiny, zjednodušíme na "" (všichni vidí)
+        const allIncluded = allGroupIds.length > 0 && allGroupIds.every(id => arr.includes(id));
+        const finalStr = allIncluded ? "" : arr.join(",");
+        updateScenarioGroupsSimple(finalStr, `Přístup skupiny ${gName} k zadání byl obnoven.`);
     };
 
     function filterCourses() {

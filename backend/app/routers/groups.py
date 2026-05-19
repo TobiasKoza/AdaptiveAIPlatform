@@ -11,13 +11,11 @@ router = APIRouter(prefix="/groups", tags=["Groups"])
 
 @router.post("")
 def create_group(payload: GroupCreateRequest, current_user=Depends(get_current_user)) -> dict[str, Any]:
-    # Oprávnění: Učitel nebo Admin
     if current_user.get("global_role") not in ["teacher", "admin"]:
         raise HTTPException(status_code=403, detail="Pouze učitel nebo admin může vytvářet skupiny.")
     
     groups_table = get_groups_table()
 
-    # Ochrana proti duplicitním názvům skupin
     for existing in groups_table.list_entities():
         if existing.get("title", "").strip().lower() == payload.title.strip().lower():
             raise HTTPException(status_code=409, detail=f"Skupina s názvem \"{payload.title}\" již existuje.")
@@ -45,7 +43,6 @@ def create_group(payload: GroupCreateRequest, current_user=Depends(get_current_u
 
 @router.get("")
 def list_groups(current_user=Depends(get_current_user)) -> list[dict[str, Any]]:
-    # Oprávnění: Učitel nebo Admin vidí skupiny
     if current_user.get("global_role") not in ["teacher", "admin"]:
          raise HTTPException(status_code=403, detail="Nemáte oprávnění prohlížet skupiny.")
          
@@ -60,7 +57,6 @@ def delete_group(group_id: str, current_user=Depends(get_current_user)):
     groups_table = get_groups_table()
     groups_table.delete_entity(partition_key="GROUP", row_key=group_id)
 
-    # Odstraň group_id ze všech uživatelů
     users_table = get_users_table()
     for user in users_table.list_entities():
         if user.get("PartitionKey") != "USER":

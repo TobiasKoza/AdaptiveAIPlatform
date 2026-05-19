@@ -59,18 +59,20 @@ def _generate_init_sas_url(blob_prefix: str) -> str | None:
     return f"https://{account_name}.blob.core.windows.net/lab-init-files/{blob_name}?{sas_token}"
 
 
-def _provision_kali_aci(attempt_id: str, student_id: str, lab_image: str = "adaptivekoza01.azurecr.io/adaptive-lab-kali:v3", extra_env_vars: list | None = None):
+ACR_GUI_IMAGES = ("adaptive-lab-kali",)
+
+def _provision_lab_aci(attempt_id: str, student_id: str, lab_image: str, extra_env_vars: list | None = None):
     sub_id = os.getenv("AZURE_SUBSCRIPTION_ID")
     rg_name = os.getenv("AZURE_RESOURCE_GROUP")
     location = os.getenv("AZURE_LOCATION", "swedencentral")
     acr_password = os.getenv("ACR_PASSWORD")
-    
+
     credential = DefaultAzureCredential()
     client = ContainerInstanceManagementClient(credential, sub_id)
 
-    # Musí být unikátní v celém Azure regionu
-    dns_label = f"lab-kali-{attempt_id.lower()}" 
-    container_name = f"aci-kali-{attempt_id.lower()}"
+    name_prefix = "ubuntu" if "ubuntu" in lab_image else "kali"
+    dns_label = f"lab-{name_prefix}-{attempt_id.lower()}"
+    container_name = f"aci-{name_prefix}-{attempt_id.lower()}"
 
     resources = ResourceRequirements(requests=ResourceRequests(memory_in_gb=4.0, cpu=2.0))
 
@@ -97,8 +99,7 @@ def _provision_kali_aci(attempt_id: str, student_id: str, lab_image: str = "adap
         containers=[container],
         os_type="Linux",
         ip_address=IpAddress(
-            # Tady byla drobná nejasnost v protokolu, raději ho definujeme explicitně
-            ports=[Port(protocol="TCP", port=6080)], 
+            ports=[Port(protocol="TCP", port=6080)],
             type="Public",
             dns_name_label=dns_label
         ),
@@ -110,8 +111,8 @@ def _provision_kali_aci(attempt_id: str, student_id: str, lab_image: str = "adap
         poller = client.container_groups.begin_create_or_update(rg_name, container_name, group)
         result = poller.result()
         ip_address = result.ip_address.ip
-        # 4. Vrátíme URL přímo s IP adresou (místo nespolehlivého DNS)
-        return f"http://{ip_address}:6080/vnc.html?resize=remote&autoconnect=1"
+        gui_url = f"http://{ip_address}:6080/vnc.html?resize=remote&autoconnect=1"
+        return gui_url, container_name
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Azure API selhalo: {e}")
@@ -173,7 +174,7 @@ def list_labtemplates(current_user=Depends(get_current_user)) -> list[dict[str, 
 
 _BASE_IMAGE_MAP = {
     "kali": "adaptivekoza01.azurecr.io/adaptive-lab-kali:v3",
-    "ubuntu": "ubuntu",
+    "ubuntu": "adaptivekoza01.azurecr.io/adaptive-lab-kali:ubuntu-v1",
 }
 
 @router.post("/labtemplates/custom")
@@ -693,15 +694,14 @@ def start_scenario(scenario_id: str, payload: ScenarioStartRequest, current_user
     }
     gui_url = None
     effective_image = payload.lab_image if payload.lab_image else template.get("labImage", "")
-    if payload.lab_image == "skip":
-        # Testovací režim — attempt se vytvoří ale ACI se nespustí
+    if payload.lab_image == "skip" or effective_image == "skip":
+        # Žádné virtuální prostředí — attempt se vytvoří ale ACI se nespustí
         attempt_entity["status"] = "succeeded"
         attempt_entity["guiUrl"] = "skip"
         attempt_entity["labReadyAt"] = utc_now_iso()
         attempts.update_entity(mode=UpdateMode.REPLACE, entity=attempt_entity)
-    elif "adaptive-lab-kali" in effective_image:
+    elif any(tag in effective_image for tag in ACR_GUI_IMAGES):
         extra_env_vars = []
-        # Pokud byl přes lab-selector vybrán konkrétní custom template, načti init prefix z něj
         if payload.override_template_id:
             try:
                 override_tmpl = labtemplates.get_entity(partition_key="LABTEMPLATE", row_key=payload.override_template_id)
@@ -714,7 +714,7 @@ def start_scenario(scenario_id: str, payload: ScenarioStartRequest, current_user
             sas_url = _generate_init_sas_url(init_blob_prefix)
             if sas_url:
                 extra_env_vars.append({"name": "LAB_INIT_BLOB_URL", "value": sas_url})
-        gui_url = _provision_kali_aci(attempt_id, current_user["user_id"], effective_image, extra_env_vars or None)
+        gui_url, container_name = _provision_lab_aci(attempt_id, current_user["user_id"], effective_image, extra_env_vars or None)
         attempt_entity["status"] = "succeeded"
         attempt_entity["guiUrl"] = gui_url
         attempt_entity["labReadyAt"] = utc_now_iso()
@@ -724,17 +724,19 @@ def start_scenario(scenario_id: str, payload: ScenarioStartRequest, current_user
             "PartitionKey": current_user["user_id"],
             "RowKey": attempt_id,
             "guiUrl": gui_url,
+            "containerName": container_name,
             "status": "succeeded",
             "createdAt": created_at
         })
     else:
-        # Původní logika pro textové (staré) laby:
+        # Původní logika pro textové (staré) laby přes frontu:
         queue_client = get_lab_queue()
         queue_client.send_message(json.dumps(queue_payload))
 
+    final_gui_url = attempt_entity.get("guiUrl") or gui_url
     return JSONResponse(status_code=202, content={
         "message": "Scenario started.",
-        "guiUrl": gui_url if gui_url else ("skip" if payload.lab_image == "skip" else None),
+        "guiUrl": final_gui_url or None,
         "scenarioId": scenario_id,
         "scenarioTemplateId": scenario_template_id,
         "templateId": template_id,
@@ -749,12 +751,11 @@ def start_scenario(scenario_id: str, payload: ScenarioStartRequest, current_user
         "maxAttempts": max_attempts,
     })
 
-def _delete_kali_aci(attempt_id: str):
+def _delete_lab_aci(container_name: str):
     sub_id = os.getenv("AZURE_SUBSCRIPTION_ID")
     rg_name = os.getenv("AZURE_RESOURCE_GROUP")
     credential = DefaultAzureCredential()
     client = ContainerInstanceManagementClient(credential, sub_id)
-    container_name = f"aci-kali-{attempt_id}"
     try:
         client.container_groups.begin_delete(rg_name, container_name)
     except Exception:
@@ -773,7 +774,8 @@ def stop_attempt(attempt_id: str, current_user=Depends(get_current_user)) -> JSO
     try:
         session = sessions_table.get_entity(partition_key=attempt.get("userId"), row_key=attempt_id)
         if session.get("status") != "deleted":
-            _delete_kali_aci(attempt_id)
+            container_name = session.get("containerName") or f"aci-kali-{attempt_id}"
+            _delete_lab_aci(container_name)
             session["status"] = "deleted"
             sessions_table.update_entity(mode=UpdateMode.REPLACE, entity=session)
     except ResourceNotFoundError:
@@ -785,4 +787,96 @@ def stop_attempt(attempt_id: str, current_user=Depends(get_current_user)) -> JSO
     attempts_table.update_entity(mode=UpdateMode.REPLACE, entity=attempt)
 
     return JSONResponse(status_code=200, content={"message": "Lab ukončen.", "status": "finished"})
+
+
+class PauseAttemptRequest(BaseModel):
+    ai_state: str | None = None
+
+
+class SaveAiStateRequest(BaseModel):
+    ai_state: str
+
+
+@router.post("/attempts/{attempt_id}/ai-state")
+def save_ai_state(attempt_id: str, payload: SaveAiStateRequest, current_user=Depends(get_current_user)) -> JSONResponse:
+    """Průběžné uložení stavu AI cvičení/vzdělávání bez změny learningStatus."""
+    attempts_table = get_attempts_table()
+    try:
+        attempt = attempts_table.get_entity(partition_key="attempts", row_key=attempt_id)
+    except ResourceNotFoundError:
+        raise HTTPException(status_code=404, detail="Pokus nebyl nalezen.")
+    if attempt.get("userId") != current_user.get("user_id"):
+        raise HTTPException(status_code=403, detail="Nelze upravit cizí pokus.")
+    ls = attempt.get("learningStatus", "")
+    if ls in ["submitted", "evaluated"]:
+        return JSONResponse(status_code=200, content={"message": "Pokus je uzavřen — stav nebyl uložen."})
+    attempts_table.upsert_entity(mode=UpdateMode.MERGE, entity={
+        "PartitionKey": "attempts",
+        "RowKey": attempt_id,
+        "pausedAiState": payload.ai_state[:30000],
+        "updatedAt": utc_now_iso(),
+    })
+    return JSONResponse(status_code=200, content={"message": "Stav AI uložen."})
+
+
+@router.post("/attempts/{attempt_id}/pause")
+def pause_attempt(attempt_id: str, payload: PauseAttemptRequest = PauseAttemptRequest(), current_user=Depends(get_current_user)) -> JSONResponse:
+    attempts_table = get_attempts_table()
+    try:
+        attempt = attempts_table.get_entity(partition_key="attempts", row_key=attempt_id)
+    except ResourceNotFoundError:
+        raise HTTPException(status_code=404, detail="Pokus nebyl nalezen.")
+
+    if attempt.get("userId") != current_user.get("user_id"):
+        raise HTTPException(status_code=403, detail="Nelze pozastavit cizí pokus.")
+
+    current_ls = attempt.get("learningStatus", "")
+    if current_ls not in ["started", "", None]:
+        raise HTTPException(status_code=409, detail=f"Pokus v stavu '{current_ls}' nelze pozastavit.")
+
+    now = utc_now_iso()
+    update: dict[str, Any] = {
+        "PartitionKey": "attempts",
+        "RowKey": attempt_id,
+        "learningStatus": "paused",
+        "updatedAt": now,
+    }
+    if payload.ai_state:
+        update["pausedAiState"] = payload.ai_state[:30000]
+
+    attempts_table.upsert_entity(mode=UpdateMode.MERGE, entity=update)
+    return JSONResponse(status_code=200, content={"message": "Pokus byl pozastaven.", "learningStatus": "paused"})
+
+
+@router.post("/attempts/{attempt_id}/resume")
+def resume_attempt(attempt_id: str, current_user=Depends(get_current_user)) -> JSONResponse:
+    attempts_table = get_attempts_table()
+    try:
+        attempt = attempts_table.get_entity(partition_key="attempts", row_key=attempt_id)
+    except ResourceNotFoundError:
+        raise HTTPException(status_code=404, detail="Pokus nebyl nalezen.")
+
+    if attempt.get("userId") != current_user.get("user_id"):
+        raise HTTPException(status_code=403, detail="Nelze obnovit cizí pokus.")
+
+    if attempt.get("learningStatus") != "paused":
+        raise HTTPException(status_code=409, detail="Pokus není pozastaven.")
+
+    now = utc_now_iso()
+    attempts_table.upsert_entity(
+        mode=UpdateMode.MERGE,
+        entity={
+            "PartitionKey": "attempts",
+            "RowKey": attempt_id,
+            "learningStatus": "started",
+            "updatedAt": now,
+        }
+    )
+
+    paused_ai_state = attempt.get("pausedAiState", "") or ""
+    return JSONResponse(status_code=200, content={
+        "message": "Pokus byl obnoven.",
+        "learningStatus": "started",
+        "pausedAiState": paused_ai_state,
+    })
 

@@ -1,0 +1,44 @@
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    xfce4 \
+    xfce4-goodies \
+    tigervnc-standalone-server \
+    xauth \
+    novnc \
+    websockify \
+    dbus-x11 \
+    sudo \
+    curl \
+    wget \
+    python3 \
+    arc-theme \
+    papirus-icon-theme \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m -s /bin/bash student \
+    && echo "student ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
+    && mkdir -p /home/student/.vnc \
+    && mkdir -p /home/student/.gtkrc-2.0.d \
+    && echo 'gtk-theme-name="Arc-Dark"' > /home/student/.gtkrc-2.0 \
+    && echo 'gtk-icon-theme-name="Papirus-Dark"' >> /home/student/.gtkrc-2.0 \
+    && mkdir -p /home/student/.config/gtk-3.0 \
+    && printf '[Settings]\ngtk-theme-name=Arc-Dark\ngtk-icon-theme-name=Papirus-Dark\n' > /home/student/.config/gtk-3.0/settings.ini \
+    && printf '#!/bin/sh\nunset SESSION_MANAGER\nunset DBUS_SESSION_BUS_ADDRESS\nexec dbus-launch --exit-with-session startxfce4\n' > /home/student/.vnc/xstartup \
+    && chmod +x /home/student/.vnc/xstartup \
+    && chown -R student:student /home/student/.vnc /home/student/.gtkrc-2.0 /home/student/.config
+
+USER student
+ENV USER=student
+ENV HOME=/home/student
+WORKDIR /home/student
+
+COPY --chown=student:student entrypoint.sh /opt/entrypoint.sh
+RUN chmod +x /opt/entrypoint.sh
+
+EXPOSE 6080
+
+ENTRYPOINT ["/opt/entrypoint.sh"]

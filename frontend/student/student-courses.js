@@ -1,12 +1,42 @@
 async function initApp() {
 
     clearPolling();
+
+    // Zachovej stav stejného uživatele přes F5 (jiný uživatel jeho IDs v datech nenajde)
+    const _preservePrefixes = ['ai_scenario_', 'lab_start_', 'lab_url_', 'pass_result_', 'score_html_'];
+    const _preserveExact = ['last_course_id', 'last_scenario_id'];
+    const _savedState = {};
+    for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k) continue;
+        if (_preserveExact.includes(k) || _preservePrefixes.some(p => k.startsWith(p))) {
+            _savedState[k] = localStorage.getItem(k);
+        }
+    }
+
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && !k.startsWith('adaptiveAuth_') && !k.startsWith('theme')) keysToRemove.push(k);
+    }
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+
+    Object.entries(_savedState).forEach(([k, v]) => { if (v != null) localStorage.setItem(k, v); });
+
+    // Okamžité synchronní vyčištění veškerého UI — před jakýmkoli await
     currentCourseId = null;
     currentScenarioId = null;
     currentScenarios = [];
     currentAttempts = [];
     currentSubmissions = [];
     latestAttemptMap = {};
+    const _elClear = id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; };
+    const coursesList = document.getElementById('coursesList');
+    if (coursesList) coursesList.innerHTML = '<div class="muted" style="padding:12px 16px;">Načítám kurzy...</div>';
+    _elClear('studentMatList');
+    const materialsSection = document.getElementById('materialsSection');
+    if (materialsSection) materialsSection.style.display = 'none';
+    _elClear('ai-scenario-container');
     document.getElementById("scenariosList").innerHTML = "Vyber kurz vlevo.";
     document.getElementById("courseInfo").innerHTML = "Vyber kurz.";
     clearPageMessage();
@@ -21,7 +51,6 @@ async function initApp() {
 async function loadCustomTemplatesForStudents() {
     try {
         const res = await apiGet(`/labtemplates`); 
-        // Uložíme si názvy custom šablon do mapy, klíč bude např. "custom:12345"
         if (Array.isArray(res)) {
             res.filter(t => t.isCustom).forEach(t => {
                 customLabTemplatesMap[`custom:${t.templateId}`] = t.title;
@@ -48,6 +77,9 @@ async function loadCourses() {
     if (currentUser.globalRole === "student") {
         // Studenti z backendu dostávají přirozeně vyfiltrovaný osobní seznam
         myCourses = courses;
+    } else if (currentUser.globalRole === "admin") {
+        // Admin vidí úplně všechny kurzy — backend je vrátí bez filtru
+        myCourses = courses;
     } else {
         // Učitel dostane z backendu úplně všechny kurzy.
         // Musíme si stáhnout jeho detailní záznam z /users (kam má přístup) a zjistit jeho kurzy.
@@ -55,19 +87,18 @@ async function loadCourses() {
         try {
             const allUsers = await apiGet("/users");
             const meInDb = allUsers.find(u => u.email === currentUser.email);
-            
+
             if (meInDb) {
                 explicitCourseIds = meInDb.course_ids || meInDb.courseIds || [];
-                
+
                 // Bezpečnostní ošetření, pokud by to backend náhodou poslal jako text
                 if (typeof explicitCourseIds === 'string') {
-                    try { explicitCourseIds = JSON.parse(explicitCourseIds); } 
+                    try { explicitCourseIds = JSON.parse(explicitCourseIds); }
                     catch(e) { explicitCourseIds = [explicitCourseIds]; }
                 }
             }
         } catch { }
-        
-        // Vyfiltrujeme jen ty, do kterých se učitel reálně zapsal
+
         myCourses = courses.filter(c => explicitCourseIds.includes(c.courseId));
     }
 
@@ -79,14 +110,12 @@ async function loadCourses() {
     listEl.innerHTML = "";
     myCourses.forEach(course => {
         const card = document.createElement("div");
+        card.className = "sidebar-card";
         card.dataset.id = course.courseId;
-        card.style.cssText = "margin: 8px 10px; padding: 12px 14px; cursor: pointer; border: 1px solid var(--border-color); border-radius: 8px; transition: background 0.15s;";
         card.innerHTML = `
-        <div style="font-size: 14px; font-weight: bold; color: var(--text-primary);">${escapeHtml(course.title || "Bezejmenný kurz")}</div>
-        ${course.description ? `<div style="font-size: 12px; color: var(--text-muted); margin-top: 4px; line-height: 1.4;">${escapeHtml(course.description)}</div>` : ""}
+        <div class="sidebar-card-title">${escapeHtml(course.title || "Bezejmenný kurz")}</div>
+        ${course.description ? `<div class="sidebar-card-desc">${escapeHtml(course.description)}</div>` : ""}
         `;
-        card.addEventListener("mouseenter", () => { if (card.dataset.id !== currentCourseId) card.style.background = "var(--bg-card-hover)"; });
-        card.addEventListener("mouseleave", () => { if (card.dataset.id !== currentCourseId) card.style.background = ""; });
         card.addEventListener("click", () => {
             const hasActiveLab = isAnyLabActive() || localStorage.getItem('active_lab_course') !== null;
             if (hasActiveLab && course.courseId !== currentCourseId) {
@@ -106,9 +135,7 @@ async function loadCourses() {
         const activeCourseId = savedCourseId || (courseToSelect?.courseId);
         document.querySelectorAll("#coursesList [data-id]").forEach(card => {
             if (card.dataset.id !== activeCourseId) {
-                card.style.opacity = "0.45";
-                card.style.pointerEvents = "none";
-                card.style.cursor = "not-allowed";
+                card.classList.add("locked");
                 card.title = "Nelze přepnout kurz během plnění úkolu.";
             }
         });
@@ -133,12 +160,16 @@ async function selectCourse(courseId, courseTitle, skipLockCheck = false) {
 
     clearPolling();
     clearPageMessage();
+    if (typeof window.aiScenario?.deactivate === 'function') window.aiScenario.deactivate();
     currentCourseId = courseId;
     currentScenarioId = null;
     localStorage.setItem("last_course_id", courseId);
-    resetScenarioPanel("Vyber úlohu ze seznamu.");
+    document.getElementById("scenarioDetail").innerHTML = `
+        <div class="scenario-loading">
+            <div class="scenario-spinner"></div>
+            <div class="muted">Načítám úlohy...</div>
+        </div>`;
 
-    // Okamžitě resetuj materiály předchozího kurzu
     const matSection = document.getElementById("materialsSection");
     const matList = document.getElementById("studentMatList");
     const matHeading = document.getElementById("materialsHeading");
@@ -147,12 +178,7 @@ async function selectCourse(courseId, courseTitle, skipLockCheck = false) {
     if (matHeading) matHeading.textContent = `Studijní materiály — ${courseTitle || ''}`;
 
     document.querySelectorAll("#coursesList [data-id]").forEach(el => {
-    const isActive = el.dataset.id === courseId;
-    el.style.background = isActive ? "#1a3a6b" : "";
-    el.style.borderColor = isActive ? "#1a3a6b" : "var(--border-color)";
-    el.querySelectorAll("div").forEach(d => {
-        d.style.color = isActive ? "white" : "";
-    });
+        el.classList.toggle("active", el.dataset.id === courseId);
     });
 
     document.getElementById("courseInfo").innerHTML = `
@@ -175,6 +201,14 @@ async function selectCourse(courseId, courseTitle, skipLockCheck = false) {
         const savedScenarioId = localStorage.getItem("last_scenario_id");
         const scenarioToSelect = currentScenarios.find(s => s.scenarioId === savedScenarioId) || currentScenarios[0];
         selectScenario(scenarioToSelect.scenarioId);
+        // Pokud byl výběr zablokován (jiné zadání má aktivní pokus), vyber to aktivní
+        if (!currentScenarioId) {
+            const activeSc = currentScenarios.find(s => {
+                const atm = latestAttemptMap[s.scenarioId];
+                return atm && atm.status !== 'archived' && atm.learningStatus === 'started';
+            }) || currentScenarios[0];
+            selectScenario(activeSc.scenarioId);
+        }
     } else {
         resetScenarioPanel("V kurzu zatím nejsou žádné publikované úlohy.");
     }
@@ -207,8 +241,8 @@ async function loadStudentMaterials(courseId, courseTitle) {
         return;
     }
 
-    const iconColors = { pdf:'#ef4444', docx:'#3b82f6', pptx:'#f97316', png:'#10b981', jpg:'#10b981', jpeg:'#10b981', mp4:'#8b5cf6', txt:'#6b7280', md:'#6b7280' };
-    const iconLabels = { pdf:'PDF', docx:'DOC', pptx:'PPT', png:'PNG', jpg:'JPG', jpeg:'JPG', mp4:'MP4', txt:'TXT', md:'MD' };
+    const iconColors = { pdf:'#ef4444', docx:'#3b82f6', pptx:'#f97316', png:'#10b981', jpg:'#10b981', jpeg:'#10b981', mp4:'#8b5cf6', txt:'#6b7280', md:'#6b7280', xlsx:'#10b981', csv:'#10b981' };
+    const iconLabels = { pdf:'PDF', docx:'DOC', pptx:'PPT', png:'PNG', jpg:'JPG', jpeg:'JPG', mp4:'MP4', txt:'TXT', md:'MD', xlsx:'XLSX', csv:'CSV' };
 
     function matIcon(ext) {
         const color = iconColors[ext] || '#6b7280';
@@ -226,13 +260,10 @@ async function loadStudentMaterials(courseId, courseTitle) {
         const ext = (m.extension || '').toLowerCase();
         const name = m.originalName || 'Soubor';
         const safeName = name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-        return `<div style="display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--border-color); border-radius:8px; cursor:pointer; transition:background 0.15s; background:var(--bg-status);" onmouseover="this.style.background='var(--bg-card-hover)'" onmouseout="this.style.background='var(--bg-status)'"
-            onclick="downloadStudentMaterial('${courseId}', '${m.fileId}', '${safeName}')">
+        return `<div class="material-item" onclick="downloadStudentMaterial('${courseId}', '${m.fileId}', '${safeName}')">
         ${matIcon(ext)}
-        <div style="flex:1; min-width:0;">
-            <div style="font-size:13px; font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${name}">${name}</div>
-        </div>
-        <span style="font-size:13px; color:var(--btn-primary); flex-shrink:0;">⬇</span>
+        <div class="material-item-name" title="${name}">${name}</div>
+        <span class="material-item-dl">⬇</span>
         </div>`;
     }).join('');
 

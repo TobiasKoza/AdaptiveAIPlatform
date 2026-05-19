@@ -8,27 +8,14 @@ function initProfileEditor() {
     // Pokud už modal existuje, nic neděláme
     if (document.getElementById('editProfileModal')) return;
 
-    // Vytvoříme CSS pro modal
-    const styles = `
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; justify-content: center; align-items: center; }
-        .modal-box { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); width: 350px; text-align: left; }
-        .modal-box h3 { margin-top: 0; margin-bottom: 15px; color: #1f2937; }
-        .modal-box label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; color: #4b5563; }
-        .modal-box input { width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #d1d5db; border-radius: 4px; box-sizing: border-box; }
-        .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; }
-    `;
-    const styleSheet = document.createElement("style");
-    styleSheet.innerText = styles;
-    document.head.appendChild(styleSheet);
-
     // Vytvoříme HTML strukturu modalu
     const modalHtml = `
         <div id="editProfileModal" class="modal-overlay">
             <div class="modal-box">
                 <h3>Upravit jméno</h3>
-                <label for="editDisplayName">Zobrazované jméno:</label>
+                <label for="editDisplayName">Vaše zobrazované jméno:</label>
                 <input type="text" id="editDisplayName" placeholder="Jan Novák">
-                <div id="profileEditError" style="color: red; font-size: 12px; margin-bottom: 10px;"></div>
+                <div id="profileEditError" class="form-error" style="margin-top: 0; margin-bottom: 10px;"></div>
                 <div class="modal-buttons">
                     <button class="btn-small" style="background: #9ca3af;" onclick="closeProfileModal()">Zrušit</button>
                     <button class="btn-small" id="saveProfileBtn" onclick="saveProfileName()">Uložit</button>
@@ -105,11 +92,11 @@ async function saveProfileName() {
 function generateProfileHtml(name, role) {
     return `
         <span class="profile-clicker" onclick="openProfileModal()" title="Upravit profil" style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px; color: #9ca3af;">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px; opacity: 0.6;">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
             </svg>
-            <span style="color: #e5e7eb; font-weight: normal;">Přihlášen:</span>
-            <span class="profile-name" style="color: white; font-weight: bold;">${name}</span>
+            <span style="font-weight: normal; opacity: 0.8;">Přihlášen:</span>
+            <span class="profile-name" style="font-weight: bold;">${name}</span>
         </span>
     `;
 }
@@ -268,28 +255,79 @@ async function sharedCheckAutoLogin(allowedRoles, initFunction, portalName = "ap
     }
 }
 
-function sharedLogout(cleanupFunction, portalName = "app") {
-    if (!confirm("Opravdu se chcete odhlásit?")) return;
-    
-    currentUserEmail = "";
-    currentDisplayName = "";
-    document.getElementById("loginEmail").value = "";
-    document.getElementById("loginPassword").value = "";
-    
-    const err = document.getElementById("loginError");
-    if(err) err.innerText = "";
-    
-    // Mažeme auth klíč daného portálu
-    localStorage.removeItem("adaptiveAuth_" + portalName);
+function showSharedConfirm(title, text, confirmBtnText, onConfirm) {
+    const existing = document.getElementById('_sharedConfirmOverlay');
+    if (existing) existing.remove();
 
-    // KRITICKÉ: Vymazat sessionStorage — obsahuje rozpracované odpovědi kroků
-    // a další data předchozího studenta
-    sessionStorage.clear();
-    
-    document.getElementById("mainApp").style.display = "none";
-    document.getElementById("loginScreen").style.display = "flex";
-    
-    if (cleanupFunction) cleanupFunction();
+    const overlay = document.createElement('div');
+    overlay.id = '_sharedConfirmOverlay';
+    overlay.style.cssText = `
+        position:fixed;inset:0;z-index:99999;
+        background:rgba(0,0,0,0.55);
+        display:flex;align-items:center;justify-content:center;
+    `;
+
+    overlay.innerHTML = `
+        <div style="
+            background:var(--bg-modal);
+            border:1px solid var(--border-color);
+            border-radius:12px;
+            padding:28px 32px;
+            min-width:320px;max-width:440px;
+            box-shadow:0 8px 32px rgba(0,0,0,0.28);
+            display:flex;flex-direction:column;gap:14px;
+        ">
+            <div style="font-size:17px;font-weight:700;color:var(--text-primary);">${title}</div>
+            <div style="font-size:14px;color:var(--text-muted);">${text}</div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
+                <button id="_sharedConfirmCancel" style="
+                    padding:8px 18px;border-radius:8px;
+                    border:1px solid var(--border-color);
+                    background:var(--bg-tab-btn);color:var(--text-primary);
+                    font-size:14px;cursor:pointer;
+                ">Zrušit</button>
+                <button id="_sharedConfirmOk" style="
+                    padding:8px 18px;border-radius:8px;border:none;
+                    background:#ef4444;color:#fff;
+                    font-size:14px;font-weight:600;cursor:pointer;
+                ">${confirmBtnText}</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('#_sharedConfirmOk').addEventListener('click', () => {
+        overlay.remove();
+        onConfirm();
+    });
+    overlay.querySelector('#_sharedConfirmCancel').addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+function sharedLogout(cleanupFunction, portalName = "app") {
+    showSharedConfirm(
+        "Odhlášení",
+        "Opravdu se chcete odhlásit?",
+        "Odhlásit se",
+        () => {
+            currentUserEmail = "";
+            currentDisplayName = "";
+            document.getElementById("loginEmail").value = "";
+            document.getElementById("loginPassword").value = "";
+
+            const err = document.getElementById("loginError");
+            if (err) err.innerText = "";
+
+            localStorage.removeItem("adaptiveAuth_" + portalName);
+            sessionStorage.clear();
+
+            document.getElementById("mainApp").style.display = "none";
+            document.getElementById("loginScreen").style.display = "flex";
+
+            if (cleanupFunction) cleanupFunction();
+        }
+    );
 }
 
 function togglePasswordVisibility(inputId, iconId) {

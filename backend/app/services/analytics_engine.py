@@ -77,7 +77,7 @@ def compute_course_summary(course_id: str, scenario_id: str | None = None, days:
     min_score = round(min(scores), 1) if scores else 0
     max_score = round(max(scores), 1) if scores else 0
     std_dev = round(statistics.stdev(scores), 1) if len(scores) >= 2 else 0
-    max_score = max(scores) if scores else 1
+    max_score = max(max(scores), 1) if scores else 1
     success_count = sum(1 for sc in scores if (sc / max_score * 100) >= 50)
     success_rate = round(success_count / len(scores) * 100, 1) if scores else 0
 
@@ -241,6 +241,40 @@ def compute_at_risk_students(course_id: str, scenario_id: str | None = None, use
             s["risk_score"] = risk_score
             at_risk.append(s)
     at_risk.sort(key=lambda x: -x["risk_score"])
+
+    # Přidej per-step detail pro každého rizikového studenta
+    attempts_table = get_attempts_table()
+    for s in at_risk:
+        uid = s["userId"]
+        weak_steps = []
+        try:
+            user_attempts = [
+                e for e in attempts_table.list_entities()
+                if e.get("userId") == uid and e.get("courseId") == course_id
+                and (not scenario_id or e.get("scenarioId") == scenario_id)
+                and e.get("status") == "archived"
+            ]
+            if user_attempts:
+                # Vezmi nejnovější pokus
+                latest = sorted(user_attempts, key=lambda x: x.get("submittedAt", ""), reverse=True)[0]
+                step_details_raw = latest.get("stepDetails", "")
+                if step_details_raw:
+                    import json as _json
+                    steps = _json.loads(step_details_raw)
+                    for step in steps:
+                        earned = step.get("points_earned", 0) or 0
+                        max_pts = step.get("points_max") or step.get("max_points", 0) or 0
+                        if max_pts > 0 and earned < max_pts:
+                            weak_steps.append({
+                                "step": step.get("step", "?"),
+                                "label": (step.get("task_text") or step.get("title") or "")[:60],
+                                "earned": earned,
+                                "max": max_pts,
+                            })
+        except Exception:
+            pass
+        s["weak_steps"] = weak_steps[:5]
+
     return at_risk
 
 
@@ -481,24 +515,24 @@ def compute_step_statistics(course_id: str, scenario_id: str, variant_ids: list[
                 z += 1
                 
         # Chybějící záznamy pro tento krok (student odevzdal, ale krok nemá data)
-        # → započítáme jako červené (0 bodů / chybí)
+        # → zobrazíme jako šedé (bez odpovědi), ne červené
         found_attempts = f + p + z
-        missing = valid_attempts_count - found_attempts if valid_attempts_count > found_attempts else 0
-        z += missing
+        skipped = valid_attempts_count - found_attempts if valid_attempts_count > found_attempts else 0
 
-        total_for_step = f + p + z
+        total_for_step = f + p + z + skipped
         success_rate = round((f / total_for_step) * 100, 1) if total_for_step > 0 else 0
 
         result.append({
             "step_id": sid,
             "label": data["label"],
-            "total_students": total_for_step,  # zpětná kompatibilita pro starší frontend
+            "total_students": total_for_step,
             "total_attempts": total_for_step,
             "successful_students": f,
             "full_score_students": f,
             "partial_students": p,
             "zero_students": z,
-            "success_rate": success_rate
+            "skipped_students": skipped,
+            "success_rate": success_rate,
         })
 
     return result
@@ -563,7 +597,7 @@ def compute_ai_weaknesses(course_id: str, scenario_id: str | None = None) -> str
                 "avg_max": avg_max,
             })
     ranked.sort(key=lambda x: -x["failure_rate"])
-    top8 = ranked[:8]
+    top8 = ranked[:15]
 
     from app.services.ai_evaluator import get_ai_client
     client = get_ai_client()
@@ -579,7 +613,7 @@ def compute_ai_weaknesses(course_id: str, scenario_id: str | None = None) -> str
 STATISTIKY ODPOVĚDÍ STUDENTŮ (seřazeno od nejvyšší chybovosti):
 {data_lines}
 
-Vrať strukturovaný přehled v češtině (markdown, max 350 slov):
+Vrať strukturovaný přehled v češtině (markdown, max 600 slov):
 
 ## Hlavní slabiny studentů
 [2-3 věty o celkovém obrazu chybovosti]
@@ -630,15 +664,36 @@ def generate_ai_summary(context: dict) -> str:
     scenario_context = context.get("scenario_context", "")
     scenario_title = context.get("scenario_title", "")
 
-    at_risk_text = "\n".join(
-        f"  - {s.get('displayName', s.get('userId', '?'))}: průměr {s.get('avg_score', '?')} b. ({s.get('attempts', 0)} pokusů, trend {s.get('trend', '?')})"
-        for s in at_risk
-    ) or "  Žádní rizikoví studenti."
+    def _format_at_risk(s: dict) -> str:
+        avg = s.get('avg_score')
+        last_score = s.get('last_score') or avg
+        step_stats_ctx = context.get('step_stats', [])
+        total_max = sum(s2.get('avg_max', 0) or 0 for s2 in step_stats_ctx) if step_stats_ctx else 0
+        max_pts = total_max if total_max > 0 else context.get('max_score', 100)
+        pct = round((last_score / max_pts) * 100) if last_score is not None and max_pts else None
+        grade = ''
+        if pct is not None:
+            if pct >= 90: grade = 'A'
+            elif pct >= 75: grade = 'B'
+            elif pct >= 60: grade = 'C'
+            elif pct >= 50: grade = 'D'
+            elif pct >= 30: grade = 'E'
+            else: grade = 'F'
+        grade_str = f", poslední pokus: {last_score} b. → {grade} ({pct}%)" if grade else ""
+        lines = [f"  - {s.get('displayName', s.get('userId', '?'))}: průměr {avg} b.{grade_str} ({s.get('attempts', 0)} pokusů, trend {s.get('trend', '?')})"]
+        # Přidej per-step detail pokud je dostupný
+        weak_steps = s.get("weak_steps", [])
+        if weak_steps:
+            for ws in weak_steps[:4]:
+                lines.append(f"    • Krok {ws['step']}: {ws['label']} — {ws['earned']}/{ws['max']} b.")
+        return "\n".join(lines)
+
+    at_risk_text = "\n".join(_format_at_risk(s) for s in at_risk) or "  Žádní rizikoví studenti."
 
     # Kroky seřazené podle úspěšnosti (nejhorší první)
     sorted_steps = sorted(step_stats, key=lambda x: x.get("success_rate", 100))
     steps_text = "\n".join(
-        f"  - Krok {s.get('step_id', '?')}: {s.get('label', '?')} — {s.get('full_score_students', 0)} plný počet / {s.get('partial_students', 0)} částečně / {s.get('zero_students', 0)} nula (celkem {s.get('total_students', 0)} studentů)"
+        f"  - Krok {s.get('step_id', '?')}: {s.get('label', '?')} — {s.get('full_score_students', 0)} studentů plný počet, {s.get('partial_students', 0)} studentů částečný počet, {s.get('zero_students', 0)} studentů 0 bodů (celkem {s.get('total_students', 0)} studentů, úspěšnost {s.get('success_rate', 0):.0f}%)"
         for s in sorted_steps[:5]
     ) or "  Data o krocích nejsou dostupná."
 
@@ -678,7 +733,7 @@ Poskytni odpověď PŘESNĚ v tomto strukturovaném formátu (markdown):
 [bullet list max 4 konkrétní doporučení — navázaná na problematické kroky výše]
 
 ## Rizikoví studenti
-[bullet list — uveď VŠECHNY rizikové studenty (F, E, slabé D), ke každému uveď konkrétní kroky kde selhali podle dat výše a doporuč konkrétní postup]
+[bullet list — uveď VŠECHNY rizikové studenty. Ke každému uveď: průměr bodů, počet pokusů, a pro každý slabý krok uveď PŘESNĚ kolik bodů dostal z kolika (např. "Krok 3: 0/19 b."). Doporuč konkrétní postup. Nevymýšlej data která nemáš.]
 
 Piš česky, formálně, konkrétně. Vycházej POUZE z dat která máš k dispozici. Nezmiňuj témata která nejsou v datech."""
 

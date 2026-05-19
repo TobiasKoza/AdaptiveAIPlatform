@@ -12,7 +12,7 @@ if (typeof window.customConfirm !== 'function') {
                             Zrušit
                         </button>
                         <button id="_customConfirmOk"
-                            style="padding:8px 18px;border-radius:6px;border:none;background:#3b82f6;color:white;cursor:pointer;font-size:14px;font-weight:bold;">
+                            style="padding:8px 18px;border-radius:6px;border:none;background:var(--btn-primary);color:white;cursor:pointer;font-size:14px;font-weight:bold;">
                             Pokračovat
                         </button>
                     </div>
@@ -194,7 +194,7 @@ function restoreStepProgress() {
                 log.innerHTML = '';
                 hints.slice(0, usedCount).forEach((hint, hi) => {
                     const div = document.createElement('div');
-                    div.style.cssText = 'background:#fef9c3; border:1px solid #f59e0b; border-radius:6px; padding:8px 12px; font-size:13px; color:#78350f; margin-bottom:6px;';
+                    div.className = 'hint-box-warning';
                     div.innerHTML = `<strong>💡 Nápověda ${hi + 1}:</strong> ${escapeHtml(hint.text)}`;
                     log.appendChild(div);
                 });
@@ -224,7 +224,7 @@ function restoreStepProgress() {
                 log.innerHTML = '';
                 hints.slice(0, usedCount).forEach((hint, hi) => {
                     const div = document.createElement('div');
-                    div.style.cssText = 'background:#fef9c3; border:1px solid #f59e0b; border-radius:6px; padding:8px 12px; font-size:13px; color:#78350f; margin-bottom:6px;';
+                    div.className = 'hint-box-warning';
                     div.innerHTML = `<strong>💡 Nápověda ${hi + 1}:</strong> ${escapeHtml(hint.text)}`;
                     log.appendChild(div);
                 });
@@ -416,7 +416,7 @@ window.useHint = function(stepIndex) {
     const log = document.getElementById(`step-hints-log-${stepIndex}`);
     if (log) {
         const div = document.createElement('div');
-        div.style.cssText = 'background:#fef9c3; border:1px solid #f59e0b; border-radius:6px; padding:8px 12px; font-size:13px; color:#78350f; margin-bottom:6px;';
+        div.className = 'hint-box-warning';
         div.innerHTML = `<strong>💡 Nápověda ${used + 1}:</strong> ${escapeHtml(hint.text)}`;
         log.appendChild(div);
     }

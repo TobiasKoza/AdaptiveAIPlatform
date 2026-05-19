@@ -22,7 +22,7 @@ cd AdaptiveAIPlatform
 ### Backend
 
 ```powershell
-cd backend-api
+cd backend
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
@@ -43,7 +43,7 @@ cd ..
 
 ## Konfigurace
 
-Vložit `.env` do složky `backend-api\`. misto `.env.example`
+Vložit `.env` do složky `backend\`. misto `.env.example`
 
 ---
 
@@ -51,7 +51,7 @@ Vložit `.env` do složky `backend-api\`. misto `.env.example`
 >`start.cmd` -> **Spustit jako správce**, jinak nemusí správně nastartovat všechny procesy.
 ```powershell
 # Terminál 1 — Backend
-cd backend-api
+cd backend
 .venv\Scripts\activate
 uvicorn app.main:app --reload --port 8000
 ```
@@ -77,7 +77,7 @@ python -m http.server 5500
 
 | | URL |
 |---|---|
-| Student / přihlášení | http://127.0.0.1:5500/index.html |
+| Student / přihlášení | http://127.0.0.1:5500/student.html |
 | Učitelský portál | http://127.0.0.1:5500/teacher.html |
 | API dokumentace | http://127.0.0.1:8000/docs |
 
@@ -88,7 +88,7 @@ python -m http.server 5500
 
 ```
 frontend/        HTML/JS, port 5500
-backend-api/     FastAPI, port 8000
+backend/         FastAPI, port 8000
 functions-app/   Azure Functions — spouštění ACI kontejnerů (Kali Linux)
 ```
 

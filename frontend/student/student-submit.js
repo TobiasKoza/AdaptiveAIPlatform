@@ -16,11 +16,11 @@ async function submitLatestAttempt() {
     const attemptId = latestAttempt ? latestAttempt.attemptId : null;
 
     clearPageMessage();
-    showToast("Odesílám odevzdání...", false, true);
+    const scenario = currentScenarios.find(s => s.scenarioId === currentScenarioId);
+    const _isEduSubmit = !!(scenario && (scenario.hints || '').includes('[TYPE:ai_education]'));
+    showToast(_isEduSubmit ? "Ukládám výsledky..." : "Odesílám odevzdání...", false, true);
 
     window.syncInputsToSession();
-
-    const scenario = currentScenarios.find(s => s.scenarioId === currentScenarioId);
     const variantNum = window.getScenarioVariantNumber
         ? window.getScenarioVariantNumber(scenario, latestAttempt?.runNumber || 1)
         : (latestAttempt?.runNumber || 1);
@@ -140,11 +140,19 @@ async function submitLatestAttempt() {
         contentPayload = lines.join('\n');
     }
 
-    // AI scénář — přepíše contentPayload a nastaví autoScore
-    const aiPayload = window.aiScenario?.isActive() ? window.aiScenario.buildPayload() : null;
-    if (aiPayload) {
+    const _submitScenarioHints = (typeof currentScenarios !== 'undefined' ? currentScenarios : [])
+        ?.find?.(s => s.scenarioId === currentScenarioId)?.hints || '';
+    const _submitIsEdu = _submitScenarioHints.includes('[TYPE:ai_education]');
+    const _submitIsAiExercise = _submitScenarioHints.includes('[ADAPTIVE:true]');
+    // Spusť buildPayload jen pokud odevzdáváme skutečně AI scénář/vzdělávání — ne jiné zadání
+    const aiPayload = (_submitIsEdu || _submitIsAiExercise) && window.aiScenario?.isActive() ? window.aiScenario.buildPayload() : null;
+    // Guard: pokud buildPayload vrátilo edu formát ale scénář je cvičení, ignoruj ho
+    const _aiPayloadValid = aiPayload && !(!_submitIsEdu && aiPayload.trimStart().startsWith('[AI_EDUCATION]'));
+    if (_aiPayloadValid) {
         contentPayload = aiPayload;
-        if (window.aiScenario._state) {
+        if (aiPayload.trimStart().startsWith('[AI_EDUCATION]') && typeof window.aiScenario.buildStepDetails === 'function') {
+            try { stepDetails = JSON.parse(window.aiScenario.buildStepDetails()); } catch {}
+        } else if (window.aiScenario._state) {
             autoScore = window.aiScenario._state.earnedPoints;
             const aiHistory = window.aiScenario._state.subtaskHistory || [];
             if (aiHistory.length) {
@@ -159,8 +167,34 @@ async function submitLatestAttempt() {
                     points_max: h.maxPoints ?? 0,
                     answer: h.answer || '',
                     feedback: (h.feedback || '').split(/\n---\n/)[0].trim(),
+                    reasoning: h.reasoning || '',
                 }));
             }
+        }
+    } else if (!_submitIsEdu && _submitIsAiExercise && aiPayload && window.aiScenario?._state) {
+        // Fallback: buildPayload vrátilo [AI_EDUCATION] pro cvičení — použij _state přímo
+        const _st = window.aiScenario._state;
+        autoScore = _st.earnedPoints;
+        const aiHistory = _st.subtaskHistory || [];
+        const lines = aiHistory.map((h, i) => {
+            const pts = `[${h.points ?? 0}/${h.maxPoints ?? 0} b]`;
+            return `Úkol ${i + 1} ${pts}:\nOtázka: ${h.question || ''}\nOdpověď: ${h.answer || ''}\n${h.correctAnswer ? `Správná odpověď: ${h.correctAnswer}\n` : ''}Zpětná vazba AI: ${(h.feedback || '').split(/\n---\n/)[0].trim()}\n---`;
+        });
+        contentPayload = `[AI_SCENARIO]\nCelkem bodů: ${_st.earnedPoints ?? 0} / ${_st.maxPoints ?? 0}\n\n${lines.join('\n')}`;
+        if (aiHistory.length) {
+            stepDetails = aiHistory.map((h, i) => ({
+                step_id: `ai-${i + 1}`,
+                step: i + 1,
+                task_type: h.qtype || 'open',
+                title: (h.question || '').split('\n')[0].trim().slice(0, 50),
+                task_text: h.question || '',
+                points_earned: h.points ?? 0,
+                max_points: h.maxPoints ?? 0,
+                points_max: h.maxPoints ?? 0,
+                answer: h.answer || '',
+                feedback: (h.feedback || '').split(/\n---\n/)[0].trim(),
+                reasoning: h.reasoning || '',
+            }));
         }
     }
 
@@ -180,7 +214,6 @@ async function submitLatestAttempt() {
 
     window._pendingScoreMessage = null; // Nerenderujeme přes renderScenarioDetail
 
-    // Zamkni AI scénář okamžitě po odevzdání
     if (window.aiScenario?.isActive && typeof window.aiScenario.lock === 'function') {
         window.aiScenario.lock();
     }
@@ -220,7 +253,6 @@ async function submitLatestAttempt() {
     }
 
     if (_isAutoSubmit) {
-        // Zašedni startBtn — archivace ještě běží
         const _startBtn = document.getElementById('startBtn');
         if (_startBtn) { _startBtn.disabled = true; _startBtn.style.opacity = '0.5'; _startBtn.style.cursor = 'not-allowed'; }
 
@@ -260,7 +292,6 @@ async function submitLatestAttempt() {
                     if (_textMatch) _totalMax = parseInt(_textMatch[1], 10);
                 }
 
-                // Parsuj kroky ze zadání
                 // Rozbal správnou variantu podle runNumber
                 const _runNum = latestAttemptMap[currentScenarioId]?.runNumber || 1;
                 const _hintsForVariant = _autoSubmitScenario?.hints || "";
@@ -297,7 +328,6 @@ async function submitLatestAttempt() {
                 }
 
                 if (_steps.length > 0) {
-                    // Parsuj odpovědi studenta
                     const _payload = _mySub.contentPayload || "";
                     const _answerMap = {};
                     const _ansRx = /^Krok\s+(\d+):\s*/gm;
@@ -310,12 +340,10 @@ async function submitLatestAttempt() {
                     });
                     if (_starts.length === 0 && _payload.trim()) _answerMap["1"] = _payload.trim();
 
-                    // Rozdělení bodů
                     const _base = Math.floor(_totalMax / _steps.length);
                     const _rem = _totalMax - _base * _steps.length;
                     const _ptsList = _steps.map((_, i) => _base + (i < _rem ? 1 : 0));
 
-                    // Volej AI per krok
                     const _results = [];
                     for (let i = 0; i < _steps.length; i++) {
                         try {
@@ -440,7 +468,6 @@ async function submitLatestAttempt() {
         return;
     }
 
-    // EXACT + PASS_THRESHOLD — auto-archivace bez AI hodnocení
     if (_isExactAutoArchive) {
         const _freshSubsExact = await apiGet(`/courses/${currentCourseId}/my-submissions`);
         const _mySubExact = _freshSubsExact.find(s => s.attemptId === attemptId);
@@ -478,7 +505,6 @@ async function submitLatestAttempt() {
         return;
     }
 
-    // ADAPTIVNÍ AI — auto-archivace (okamžité vyhodnocení bez učitele)
     if (_isAdaptiveScenario) {
         const _startBtn = document.getElementById('startBtn');
         if (_startBtn) { _startBtn.disabled = true; _startBtn.style.opacity = '0.5'; _startBtn.style.cursor = 'not-allowed'; }
@@ -488,7 +514,6 @@ async function submitLatestAttempt() {
             showToast('Ukládám výsledky a generuji zpětnou vazbu…', false, true);
         }
 
-        // Získání ID odevzdání z backendu
         let _mySubAdaptive = null;
         for (let _retry = 0; _retry < 8; _retry++) {
             const _freshSubs = await apiGet(`/courses/${currentCourseId}/my-submissions`);
@@ -510,7 +535,6 @@ async function submitLatestAttempt() {
                 else if (_pctAI >= 50) summaryMsg = `Dosáhli jste ${_earnedAI} bodů z ${_maxPtsAI}, což je průměrný výsledek.`;
                 else summaryMsg = `Bohužel jste tentokrát dosáhli pouze ${_earnedAI} bodů z ${_maxPtsAI}.`;
 
-                // Sestav kontext pro synthesize — celkové skóre + per-úkol zpětné vazby
                 const _aiHistory = window.aiScenario?._state?.subtaskHistory || [];
                 const _synthLines = [`Celkové skóre studenta: ${_earnedAI} / ${_maxPtsAI} bodů\n`]
                     .concat(_aiHistory.map((h, i) =>
@@ -563,7 +587,6 @@ async function submitLatestAttempt() {
         }
         return;
     }
-    // Zobrazíme zprávu jen pokud je stále vybraná stejná úloha
     if (currentScenarioId === submittedScenarioId) {
         hideToast();
         showToast("Výsledek byl úspěšně odevzdán.");
@@ -632,7 +655,6 @@ async function pollAttempt(attemptId) {
         currentAttempts = currentAttempts.filter(a => a.attemptId !== attemptId);
         currentAttempts.unshift(attempt);
         
-        //Načtení my-submissions i uvnitř pollingu
         currentSubmissions = await apiGet(`/courses/${currentCourseId}/my-submissions`);
         
         buildLatestAttemptMap();
@@ -706,8 +728,6 @@ async function pollAttempt(attemptId) {
     function startPolling(attemptId) {
 
     clearPolling();
-    // Okamžitě se zeptáme jednou
     pollAttempt(attemptId);
-    // A pak zapneme časovač na každé 3 vteřiny
     pollTimer = setInterval(() => pollAttempt(attemptId), 3000);
     }

@@ -1,4 +1,4 @@
-    // Barva pro známku
+﻿    // Barva pro známku
     window.getGradeColor = function getGradeColor(grade) {
       if (grade === 'F') return '#ef4444';
       if (grade === '-') return '#6b7280';
@@ -115,7 +115,7 @@
           if (!document.getElementById('btnAiEvaluateNote')) {
               const note = document.createElement('div');
               note.id = 'btnAiEvaluateNote';
-              note.style.cssText = 'font-size:11px;color:var(--text-muted);margin-top:4px;';
+              note.className = 'eval-note';
               aiBtn.parentNode.insertBefore(note, aiBtn.nextSibling);
           }
       }
@@ -568,8 +568,8 @@
                       answerHtml = imgUrl ? `
                           <div style="margin-bottom:10px;">
                               <img src="${escapeHtml(imgUrl)}" alt="Obrázek k úkolu"
-                                  onclick="this.style.position='fixed';this.style.top='50%';this.style.left='50%';this.style.transform='translate(-50%,-50%)';this.style.maxWidth='90vw';this.style.maxHeight='90vh';this.style.zIndex='9999';this.style.borderRadius='8px';this.style.boxShadow='0 0 0 9999px rgba(0,0,0,0.7)';this.style.cursor='zoom-out';this.onclick=function(){this.style.cssText='max-width:120px;border-radius:6px;cursor:zoom-in;border:1px solid var(--border-color);display:block;margin-bottom:8px;'};"
-                                  style="max-width:120px;border-radius:6px;cursor:zoom-in;border:1px solid var(--border-color);display:block;margin-bottom:8px;" />
+                                  onclick="this.classList.toggle('img-lightbox');this.classList.toggle('img-thumb');"
+                                  class="img-thumb" />
                           </div>` : '';
                       answerHtml += `<div style="font-size:13px;${noAnswer?'color:#f59e0b;font-style:italic;':'color:var(--text-primary);'}line-height:1.6;white-space:pre-wrap;background:var(--bg-status);border-radius:8px;padding:10px 12px;border:1px solid ${noAnswer?'#f59e0b':'var(--border-color)'};">${noAnswer?'Student neposkytl odpověď':escapeHtml(text)}</div>`;
 
@@ -662,15 +662,17 @@
               let stepFeedbackHtml = '';
               if (isStrict && points > 0 && pointsEarned !== null) {
                   const correct = pointsEarned >= points;
-              const noAnswer = !det?.answer || det.answer === '(bez odpovědi)' || det.answer === '__SKIPPED__';
-              const fbText = correct
-                  ? 'Výborná práce, odpověď je správná!'
-                  : noAnswer
-                      ? 'Na tuto otázku student neodpověděl. Příště zkuste odpovědět — i tip se počítá!'
-                      : 'Odpověď nebyla správná. Prostudujte si toto téma a příště to určitě vyjde!';
+                  const noAnswer = !det?.answer || det.answer === '(bez odpovědi)' || det.answer === '__SKIPPED__';
+                  const _autoFbStrict = correct
+                      ? 'Výborná práce, odpověď je správná!'
+                      : noAnswer
+                          ? 'Na tuto otázku student neodpověděl. Příště zkuste odpovědět — i tip se počítá!'
+                          : 'Odpověď nebyla správná. Prostudujte si toto téma a příště to určitě vyjde!';
+                  const _savedFbStrict = (cachedAiEval?.perStepResults || []).find(r => String(r.step) === stepNum)?.feedback;
+                  const fbText = _savedFbStrict || _autoFbStrict;
                   stepFeedbackHtml = `<div style="margin-top:10px;">
-                      <label style="font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:0.5px;">Zpětná vazba</label>
-                      <textarea id="step-feedback-input-${stepNum}" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid var(--border-color);border-left:3px solid #3b82f6;border-radius:0 6px 6px 0;background:rgba(59,130,246,0.07);color:var(--text-primary);font-size:13px;line-height:1.5;resize:vertical;min-height:60px;box-sizing:border-box;">${escapeHtml(fbText)}</textarea>
+                      <label style="font-size:11px;font-weight:700;color:#3e67a8;text-transform:uppercase;letter-spacing:0.5px;">Zpětná vazba</label>
+                      <textarea id="step-feedback-input-${stepNum}" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid var(--border-color);border-left:3px solid #3e67a8;border-radius:0 6px 6px 0;background:rgba(62,103,168,0.07);color:var(--text-primary);font-size:13px;line-height:1.5;resize:vertical;min-height:60px;box-sizing:border-box;">${escapeHtml(fbText)}</textarea>
                   </div>`;
               }
 
@@ -682,8 +684,8 @@
                   const _fbPrefill = aiStepResult?.feedback || (cachedAiEval?.perStepResults || []).find(r => String(r.step) === stepNum)?.feedback || '';
                   const _existingFb = (cachedAiEval?.perStepResults || []).find(r => String(r.step) === stepNum)?.teacherFeedback || _fbPrefill;
                   stepFeedbackHtml = `<div style="margin-top:10px;">
-                      <label style="font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:0.5px;">Zpětná vazba pro studenta</label>
-                      <textarea id="step-feedback-input-${stepNum}" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid var(--border-color);border-left:3px solid #3b82f6;border-radius:0 6px 6px 0;background:rgba(59,130,246,0.07);color:var(--text-primary);font-size:13px;line-height:1.5;resize:vertical;min-height:60px;box-sizing:border-box;">${escapeHtml(_existingFb)}</textarea>
+                      <label style="font-size:11px;font-weight:700;color:#3e67a8;text-transform:uppercase;letter-spacing:0.5px;">Zpětná vazba pro studenta</label>
+                      <textarea id="step-feedback-input-${stepNum}" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid var(--border-color);border-left:3px solid #3e67a8;border-radius:0 6px 6px 0;background:rgba(62,103,168,0.07);color:var(--text-primary);font-size:13px;line-height:1.5;resize:vertical;min-height:60px;box-sizing:border-box;">${escapeHtml(_existingFb)}</textarea>
                   </div>`;
               }
               const aiStepHtml = aiStepResult ? `<div style="margin-top:6px;padding:6px 10px;border-left:3px solid #6b7280;background:var(--bg-status);border-radius:0 6px 6px 0;">
@@ -1034,7 +1036,7 @@
 
                   return `
                   <div style="margin-bottom:16px; padding:16px; background:var(--bg-status); border-radius:8px; border:1px solid var(--border-color); box-shadow:0 2px 4px rgba(0,0,0,0.05);">
-                      <div style="font-size:14px; font-weight:bold; color:var(--btn-primary, #3b82f6); margin-bottom:8px; text-transform:uppercase;">Krok ${step.num}</div>
+                      <div style="font-size:14px; font-weight:bold; color:var(--btn-primary, #3e67a8); margin-bottom:8px; text-transform:uppercase;">Krok ${step.num}</div>
                       <div style="font-size:14px; margin-bottom:12px; color:var(--text-primary); line-height:1.5;">${escapeHtml(step.text)}</div>
                       ${step.correct ? `
                           <div style="font-size:11px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Správná odpověď</div>
@@ -1083,13 +1085,166 @@
       } else {
           const rawPayload = submission?.contentPayload || attempt.submissionNote || '';
           const isAiScenario = rawPayload.trimStart().startsWith('[AI_SCENARIO]');
+          const isAiEducation = rawPayload.trimStart().startsWith('[AI_EDUCATION]');
 
           // Skryj/zobraz AI tlačítko podle typu
           if (aiBtn) {
-              aiBtn.style.display = (isExactOrSequentialScenario || isAiScenario) ? 'none' : 'inline-flex';
+              aiBtn.style.display = (isExactOrSequentialScenario || isAiScenario || isAiEducation) ? 'none' : 'inline-flex';
           }
 
-          if (isAiScenario) {
+          if (isAiEducation) {
+              // ── AI vzdělávání — grafický výstup ──────────────────────────────
+              const _raw = rawPayload;
+              const _totM = _raw.match(/Celkové skóre:\s*(\d+)\s*\/\s*(\d+)\s*b\s*\((\d+)%\)/);
+              const _eduEarned  = _totM ? parseInt(_totM[1]) : null;
+              const _eduMax     = _totM ? parseInt(_totM[2]) : null;
+              const _pct        = _totM ? parseInt(_totM[3]) : null;
+              const _thrM       = _raw.match(/Práh:\s*(\d+)/);
+              const _threshold  = _thrM ? parseInt(_thrM[1]) : 75;
+              const _masteredCnt = (_raw.match(/— ZVLÁDNUTO/g) || []).length;
+              const _skippedCnt  = (_raw.match(/— PŘESKOČENO/g) || []).length;
+              const _totalCnt    = (_raw.match(/^Téma \d+:/mg) || []).length;
+              const _overallCol  = _pct === null ? '#6b7280' : _pct >= _threshold ? '#10b981' : _pct >= 50 ? '#f59e0b' : '#ef4444';
+
+              // Parsuj step_details — seskup otázky per téma
+              let _stepsByTopic = {};
+              try {
+                  const _sdRaw = submission?.step_details || submission?.stepDetails || attempt?.step_details || attempt?.stepDetails || '';
+                  const _sdArr = JSON.parse(_sdRaw || '[]');
+                  if (Array.isArray(_sdArr)) {
+                      _sdArr.forEach(q => {
+                          let _t = q.topic || '';
+                          if (!_t) {
+                              const _tm2 = (q.task_text || q.title || '').match(/^\[([^\]]+)\]/);
+                              if (_tm2) _t = _tm2[1].trim();
+                          }
+                          if (!_stepsByTopic[_t]) _stepsByTopic[_t] = [];
+                          _stepsByTopic[_t].push(q);
+                      });
+                  }
+              } catch {}
+
+              const _topicRx = /^Téma \d+:\s*(.*?)\s*— (ZVLÁDNUTO|PŘESKOČENO|NEDOKONČENO)(.*?)\nSkóre:\s*([0-9—]+%?)/mg;
+              const _bars = [];
+              let _tm;
+              while ((_tm = _topicRx.exec(_raw)) !== null) {
+                  const _name    = _tm[1].trim();
+                  const _srRaw   = _tm[4].replace('%', '').trim();
+                  const _sc      = _srRaw === '—' ? null : parseInt(_srRaw);
+                  const _col     = _sc === null ? '#6b7280' : _sc >= _threshold ? '#10b981' : _sc >= 50 ? '#f59e0b' : '#ef4444';
+                  const _barPct  = _sc !== null ? _sc : 0;
+                  const _reps    = (_tm[3] || '').match(/(\d+) opakování/);
+                  const _rNote   = _reps ? ` · ${_reps[1]}× opakováno` : '';
+                  const _thrMark = _barPct < _threshold
+                      ? `<div style="position:absolute;top:0;left:${_threshold}%;width:2px;height:100%;background:rgba(120,120,120,0.35);border-radius:1px;"></div>`
+                      : '';
+
+                  // Accordion s otázkami
+                  const _topicSteps = _stepsByTopic[_name] || [];
+                  let _accordionHtml = '';
+                  if (_topicSteps.length > 0) {
+                      const _verifyQ = parseInt((_raw.match(/\[VERIFY_Q:(\d+)\]/) || [])[1] || '3', 10) || 3;
+                      const _qParts = [];
+                      for (let j = 0; j < _topicSteps.length; j++) {
+                          const q = _topicSteps[j];
+                          const _setNum = Math.floor(j / _verifyQ) + 1;
+                          if (j % _verifyQ === 0) {
+                              const _sadaQuestions = _topicSteps.slice(j, j + _verifyQ);
+                              const _sadaEarned = _sadaQuestions.reduce((s, x) => s + (x.points_earned || 0), 0);
+                              const _sadaMax    = _sadaQuestions.reduce((s, x) => s + (x.points_max || 100), 0);
+                              const _sadaPct    = _sadaMax > 0 ? Math.round(_sadaEarned / _sadaMax * 100) : 0;
+                              const _sadaCol    = _sadaPct >= 75 ? '#10b981' : _sadaPct >= 50 ? '#f59e0b' : '#ef4444';
+                              const _topMargin  = _setNum > 1 ? '14px' : '0';
+                              _qParts.push(`
+                              <div style="display:flex;align-items:center;gap:8px;margin:${_topMargin} 0 8px;padding-bottom:4px;border-bottom:2px solid var(--border-color);">
+                                <span style="font-size:12px;font-weight:700;color:var(--text-primary);text-transform:uppercase;letter-spacing:0.5px;">${_setNum}. sada ověřovacích otázek</span>
+                                <span style="font-size:12px;font-weight:700;color:${_sadaCol};">${_sadaPct} %</span>
+                              </div>`);
+                          }
+                          const _qPct = q.points_max > 0 ? (q.points_earned / q.points_max) : null;
+                          const _qCol = _qPct === null ? '#6b7280' : _qPct >= 0.7 ? '#10b981' : _qPct >= 0.4 ? '#f59e0b' : '#ef4444';
+                          const _qText = (q.task_text || '—').replace(/^\[[^\]]+\]\s*/, '');
+                          _qParts.push(`
+                          <div style="border-left:3px solid ${_qCol};padding:8px 12px;margin-bottom:8px;border-radius:0 6px 6px 0;background:${_qCol}12;">
+                            <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:3px;">Otázka ${j + 1}</div>
+                            <div style="font-size:13px;color:var(--text-primary);font-weight:500;margin-bottom:6px;line-height:1.5;">${escapeHtml(_qText)}</div>
+                            <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:2px;">Odpověď</div>
+                            <div style="font-size:13px;color:var(--text-primary);background:var(--bg-status);border-radius:5px;padding:6px 10px;margin-bottom:6px;white-space:pre-wrap;">${escapeHtml(q.answer || '—')}</div>
+                            <div style="font-size:11px;font-weight:700;color:#3b82f6;margin-bottom:2px;">Zpětná vazba</div>
+                            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                              <div style="font-size:13px;color:var(--text-primary);border-left:2px solid #3b82f6;padding-left:8px;line-height:1.5;flex:1;">${escapeHtml(q.feedback || '—')}</div>
+                              <span style="font-size:12px;font-weight:bold;color:${_qCol};white-space:nowrap;">${q.points_earned} / ${q.points_max} b</span>
+                            </div>
+                          </div>`);
+                      }
+                      _accordionHtml = `
+                      <details style="margin-top:6px;border:1px solid var(--border-color);border-radius:8px;overflow:hidden;">
+                        <summary style="cursor:pointer;font-size:12px;color:var(--text-muted);padding:8px 12px;list-style:none;display:flex;align-items:center;gap:5px;user-select:none;background:var(--bg-status);">
+                          <span style="font-size:10px;">▶</span> ${_topicSteps.length} otázek
+                        </summary>
+                        <div style="padding:12px;">
+                          ${_qParts.join('')}
+                        </div>
+                      </details>`;
+                  }
+
+                  _bars.push(`
+                  <div style="margin-bottom:14px;">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">
+                      <span style="font-size:13px;color:var(--text-primary);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:65%;">${escapeHtml(_name)}</span>
+                      <span style="font-size:12px;color:${_col};font-weight:bold;white-space:nowrap;flex-shrink:0;margin-left:8px;">
+                        ${_sc !== null ? _sc + '%' : '—'}${_rNote ? `<span style="font-weight:normal;color:var(--text-muted);font-size:11px;"> ${escapeHtml(_rNote)}</span>` : ''}
+                      </span>
+                    </div>
+                    <div style="background:var(--bg-status);border-radius:6px;height:10px;overflow:hidden;position:relative;">
+                      <div style="background:${_col};width:${_barPct}%;height:100%;border-radius:6px;"></div>
+                      ${_thrMark}
+                    </div>
+                    ${_accordionHtml}
+                  </div>`);
+              }
+
+              const _statsRow = [
+                  { label: 'Zvládnuto',   val: _masteredCnt,                            col: '#10b981' },
+                  { label: 'Nezvládnuto', val: _totalCnt - _masteredCnt - _skippedCnt,  col: '#ef4444' },
+                  { label: 'Přeskočeno',  val: _skippedCnt,                             col: '#f59e0b' },
+              ].filter(s => s.val > 0).map(s =>
+                  `<div style="text-align:center;flex:1;">
+                    <div style="font-size:20px;font-weight:900;color:${s.col};">${s.val}</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${s.label}</div>
+                  </div>`
+              ).join('<div style="width:1px;background:var(--border-color);"></div>');
+
+              studentAnswerHtml = `
+                <div style="margin-bottom:15px;">
+                  <h4 style="margin:0 0 12px 0; color:var(--text-primary); font-size:15px;">Výsledky vzdělávání:</h4>
+                  <div style="border:1px solid var(--border-color);border-radius:12px;background:var(--bg-panel);overflow:hidden;">
+                    <div style="padding:18px 20px;border-bottom:1px solid var(--border-color);display:flex;align-items:center;gap:16px;">
+                      <div style="flex-shrink:0;width:60px;height:60px;border-radius:50%;border:3px solid ${_overallCol};display:flex;align-items:center;justify-content:center;background:${_overallCol}18;">
+                        <span style="font-size:17px;font-weight:900;color:${_overallCol};">${_pct !== null ? _pct + '%' : '—'}</span>
+                      </div>
+                      <div>
+                        <div style="font-size:16px;font-weight:800;color:var(--text-primary);margin-bottom:3px;">Vzdělávání dokončeno</div>
+                        <div style="font-size:13px;color:var(--text-muted);">${_masteredCnt} z ${_totalCnt} témat zvládnuto${_skippedCnt > 0 ? ` · ${_skippedCnt} přeskočeno` : ''}</div>
+                      </div>
+                    </div>
+                    ${_statsRow ? `<div style="display:flex;border-bottom:1px solid var(--border-color);">${_statsRow}</div>` : ''}
+                    <div style="padding:18px 20px 8px;">
+                      <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:14px;">
+                        Úspěšnost po tématech <span style="font-size:10px;font-weight:normal;">(čárka = práh ${_threshold} %)</span>
+                      </div>
+                      ${_bars.join('')}
+                    </div>
+                  </div>
+                </div>`;
+
+              // Nastav gMax z payloadu pokud liší
+              if (_eduMax !== null && _eduMax !== gMax) {
+                  gMax = _eduMax;
+                  window.currentEvalMax = gMax;
+              }
+
+          } else if (isAiScenario) {
               // ── AI scénář — hezký render ──────────────────────────────────
               const totalMatch = rawPayload.match(/Celkem bodů:\s*(\d+)\s*\/\s*(\d+)/);
               const totalEarned = totalMatch ? totalMatch[1] : null;
@@ -1107,11 +1262,19 @@
               // Upravený regex, který odpouští prázdná místa nebo absence čísel u hodnocení (např. [ / 10 b])
               const taskRegex = /Úkol\s+(\d+)(?:\s*\[\s*(\d*)\s*\/\s*(\d+)\s*b\s*\])?:\nOtázka:\s*([\s\S]*?)\nOdpověď:\s*([\s\S]*?)\n(?:Správná odpověď:\s*([\s\S]*?)\n)?Zpětná vazba AI:\s*([\s\S]*?)(?=\n---\n|$)/g;
               const tasks = [];
+              // Načti reasoning ze step_details JSON — primární strukturovaný zdroj
+              const _aiSdRaw = submission?.stepDetails || submission?.step_details || attempt?.stepDetails || '';
+              const _aiSdMap = {};
+              try {
+                  const _sd = JSON.parse(_aiSdRaw);
+                  if (Array.isArray(_sd)) _sd.forEach(d => { _aiSdMap[String(d.step)] = d; });
+              } catch {}
+
               let tm;
               while ((tm = taskRegex.exec(rawPayload)) !== null) {
                   const sNum = tm[1];
-                  // Pokud učitel dříve hodnoty přepsal a uložil, vytáhneme je z cache:
                   const override = (cachedAiEval?.perStepResults || []).find(r => String(r.step) === String(sNum));
+                  const sdEntry = _aiSdMap[sNum];
 
                   tasks.push({
                       num: sNum, 
@@ -1121,6 +1284,7 @@
                       answer:        (tm[5]||'').trim().replace(/^([A-D])\)\s*\1\)/, '$1)'),
                       correctAnswer: (tm[6]||'').trim() || null,
                       feedback:      override && override.feedback !== undefined ? override.feedback : (tm[7]||'').trim(),
+                      reasoning:     override?.reasoning || sdEntry?.reasoning || '',
                   });
               }
 
@@ -1228,26 +1392,35 @@
                           </div>`;
                       }).join('');
                   } else if (isFill) {
-                      const answers = (t.answer || '').split('/').map(a => a.trim());
+                      // Parsuj odpověď studenta — oddělená " / " nebo "/"
+                      const answers = (t.answer || '').split(/\s*\/\s*/).map(a => a.trim());
+                      // Parsuj správnou odpověď — může být "1) slovo\n2) slovo" nebo "slovo/slovo"
+                      const _corrRaw = t.correctAnswer || '';
+                      const _corrLines = _corrRaw.split('\n').map(l => l.replace(/^\d+[\.\)]\s*/, '').trim()).filter(Boolean);
+                      const parsedCorrectAnswers = _corrLines.length > 1
+                          ? _corrLines
+                          : _corrRaw.split(/\s*\/\s*/).map(a => a.trim()).filter(Boolean);
+
                       let fillIdx = 0;
-                      const filledQ = q.replace(/___/g, () => {
+                      const filledQ = q.replace(/_{2,}/g, () => {
                           const studentVal = answers[fillIdx] || '?';
-                          const correctVal = correctAnswers[fillIdx] || null;
+                          const correctVal = parsedCorrectAnswers[fillIdx] || null;
                           fillIdx++;
                           const isOk = correctVal ? studentVal.toLowerCase().trim() === correctVal.toLowerCase().trim() : false;
                           const borderColor = !correctVal ? barColor : isOk ? '#10b981' : '#ef4444';
                           const bg = !correctVal ? 'transparent' : isOk ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.1)';
                           return `<span style="display:inline-block;padding:2px 8px;margin:0 3px;border:2px solid ${borderColor};border-radius:5px;background:${bg};color:${borderColor};font-weight:bold;font-size:13px;">${escapeHtml(studentVal)}</span>`;
                       });
-                      const wrongItems = correctAnswers.map((cv, i) => {
-                          const sv = answers[i] || '?';
-                          const isOk = cv ? sv.toLowerCase().trim() === cv.toLowerCase().trim() : false;
-                          return (!isOk && cv) ? `<span style="color:#10b981;">${escapeHtml(cv)}</span>` : null;
-                      }).filter(Boolean);
-                      const correctLine = wrongItems.length > 0
-                          ? `<div style="margin-top:8px;font-size:12px;color:var(--text-muted);">Správně: ${wrongItems.join(' / ')}</div>`
+                      // Správná odpověď inline v textu místo samostatného řádku
+                      let fillIdx2 = 0;
+                      const correctFilledQ = q.replace(/_{2,}/g, () => {
+                          const correctVal = parsedCorrectAnswers[fillIdx2++] || '?';
+                          return `<strong style="color:#10b981;padding:2px 6px;border-bottom:2px solid #10b981;">${escapeHtml(correctVal)}</strong>`;
+                      });
+                      const correctLine = parsedCorrectAnswers.length > 0
+                          ? `<div style="margin-top:10px;padding:8px 12px;background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.3);border-radius:6px;font-size:13px;color:var(--text-primary);line-height:2.2;">${correctFilledQ}</div>`
                           : '';
-                      answerHtml = `<div style="font-size:13px;color:var(--text-primary);line-height:2.2;padding:10px 12px;background:var(--bg-status);border-radius:8px;border:1px solid var(--border-color);">${filledQ}${correctLine}</div>`;
+                      answerHtml = `<div style="font-size:13px;color:var(--text-primary);line-height:2.2;padding:10px 12px;background:var(--bg-status);border-radius:8px;border:1px solid var(--border-color);">${filledQ}</div>${correctLine}`;
                   } else if (isTf) {
                       const studentTf = (t.answer || '').trim();
                       const correctTf = t.correctAnswer ? t.correctAnswer.trim() : (studentAnsweredCorrectly ? studentTf : null);
@@ -1270,69 +1443,69 @@
                         </div>`;
                   } else {
                       const ansText = t.answer || '(bez odpovědi)';
-                      const cmId = `cm-ai-stud-${t.num}`;
-                      answerHtml = `<div id="${cmId}" style="border:1px solid var(--border-color);border-radius:8px;overflow:hidden;margin-bottom:8px;"></div>`;
-                      
-                      _queueCmInit(() => {
-                          window.ensureCodeMirrorLoaded(() => {
-                              const el = document.getElementById(cmId);
-                              if (!el || el._cm) return;
-                              const _lines = ansText.split('\n').length;
-                              // Omezení odpovědi studenta na max 10 řádků (~220px)
-                              const _h = Math.min(Math.max(_lines * 19 + 32, 60), 220);
-                              el.style.height = _h + 'px';
-                              el.style.minHeight = '60px';
-                              el.style.resize = 'vertical';
-                              el.style.overflow = 'hidden';
-                              const isDark = document.body.classList.contains('dark-mode');
-                              const cm = CodeMirror(el, { 
-                                  value: ansText, 
-                                  mode: 'javascript', 
-                                  theme: isDark ? 'dracula' : 'default', 
-                                  lineNumbers: true, 
-                                  readOnly: true, 
-                                  lineWrapping: true,
-                                  scrollbarStyle: 'native'
-                              });
-                              cm.setSize('100%', '100%');
-                              if (window.ResizeObserver) new ResizeObserver(() => cm.refresh()).observe(el);
-                              setTimeout(() => { cm.setOption('mode', cm.getOption('mode')); cm.refresh(); }, 150);
-                              el._cm = cm;
-                          });
-                      });
-
-                      if (t.correctAnswer) {
-                          const cmCorrId = `cm-ai-corr-${t.num}`;
-                          answerHtml += `<div style="font-size:11px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:0.5px;margin-top:12px;margin-bottom:6px;">Správná odpověď</div>
-                          <div id="${cmCorrId}" style="border:1px solid rgba(16,185,129,0.4);border-radius:8px;overflow:hidden;"></div>`;
-                          
+                      const _isCode = /```|\bdef \w+\s*\(|\bimport \w|\bclass \w+[:\s{(]|\bfunction \w*\s*\(/.test(ansText + (t.correctAnswer || ''));
+                      if (_isCode) {
+                          const cmId = `cm-ai-stud-${t.num}`;
+                          answerHtml = `<div id="${cmId}" style="border:1px solid var(--border-color);border-radius:8px;overflow:hidden;margin-bottom:8px;"></div>`;
                           _queueCmInit(() => {
                               window.ensureCodeMirrorLoaded(() => {
-                                  const elC = document.getElementById(cmCorrId);
-                                  if (!elC || elC._cm) return;
-                                  const _linesC = t.correctAnswer.split('\n').length;
-                                  // Omezení správné odpovědi na max 5 řádků (~120px)
-                                  const _hC = Math.min(Math.max(_linesC * 19 + 32, 60), 120);
-                                  elC.style.height = _hC + 'px';
-                                  elC.style.minHeight = '60px';
-                                  elC.style.resize = 'vertical';
-                                  elC.style.overflow = 'hidden';
+                                  const el = document.getElementById(cmId);
+                                  if (!el || el._cm) return;
+                                  const _lines = ansText.split('\n').length;
+                                  const _h = Math.min(Math.max(_lines * 19 + 32, 60), 220);
+                                  el.style.height = _h + 'px';
+                                  el.style.minHeight = '60px';
+                                  el.style.resize = 'vertical';
+                                  el.style.overflow = 'hidden';
                                   const isDark = document.body.classList.contains('dark-mode');
-                                  const cmC = CodeMirror(elC, { 
-                                      value: t.correctAnswer, 
-                                      mode: 'javascript', 
-                                      theme: isDark ? 'dracula' : 'default', 
-                                      lineNumbers: true, 
-                                      readOnly: true, 
-                                      lineWrapping: true,
-                                      scrollbarStyle: 'native'
+                                  const cm = CodeMirror(el, {
+                                      value: ansText, mode: 'javascript', theme: isDark ? 'dracula' : 'default',
+                                      lineNumbers: true, readOnly: true, lineWrapping: true, scrollbarStyle: 'native'
                                   });
-                                  cmC.setSize('100%', '100%');
-                                  if (window.ResizeObserver) new ResizeObserver(() => cmC.refresh()).observe(elC);
-                                  setTimeout(() => { cmC.setOption('mode', cmC.getOption('mode')); cmC.refresh(); }, 150);
-                                  elC._cm = cmC;
+                                  cm.setSize('100%', '100%');
+                                  if (window.ResizeObserver) new ResizeObserver(() => cm.refresh()).observe(el);
+                                  setTimeout(() => { cm.setOption('mode', cm.getOption('mode')); cm.refresh(); }, 150);
+                                  el._cm = cm;
                               });
                           });
+                          if (t.correctAnswer) {
+                              const cmCorrId = `cm-ai-corr-${t.num}`;
+                              answerHtml += `<div style="font-size:11px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:0.5px;margin-top:12px;margin-bottom:6px;">Správná odpověď</div>
+                              <div id="${cmCorrId}" style="border:1px solid rgba(16,185,129,0.4);border-radius:8px;overflow:hidden;"></div>`;
+                              _queueCmInit(() => {
+                                  window.ensureCodeMirrorLoaded(() => {
+                                      const elC = document.getElementById(cmCorrId);
+                                      if (!elC || elC._cm) return;
+                                      const _linesC = t.correctAnswer.split('\n').length;
+                                      const _hC = Math.min(Math.max(_linesC * 19 + 32, 60), 120);
+                                      elC.style.height = _hC + 'px';
+                                      elC.style.minHeight = '60px';
+                                      elC.style.resize = 'vertical';
+                                      elC.style.overflow = 'hidden';
+                                      const isDark = document.body.classList.contains('dark-mode');
+                                      const cmC = CodeMirror(elC, {
+                                          value: t.correctAnswer, mode: 'javascript', theme: isDark ? 'dracula' : 'default',
+                                          lineNumbers: true, readOnly: true, lineWrapping: true, scrollbarStyle: 'native'
+                                      });
+                                      cmC.setSize('100%', '100%');
+                                      if (window.ResizeObserver) new ResizeObserver(() => cmC.refresh()).observe(elC);
+                                      setTimeout(() => { cmC.setOption('mode', cmC.getOption('mode')); cmC.refresh(); }, 150);
+                                      elC._cm = cmC;
+                                  });
+                              });
+                          }
+                      } else {
+                          // Textová odpověď — prostý div bez CodeMirror
+                          answerHtml = `<div style="font-size:13px;color:var(--text-primary);line-height:1.7;white-space:pre-wrap;background:var(--bg-status);border-radius:8px;padding:10px 14px;border:1px solid var(--border-color);margin-bottom:8px;">${escapeHtml(ansText)}</div>`;
+                          if (t.correctAnswer) {
+                              const _corrLines = t.correctAnswer.split('\n').map(l => l.trim()).filter(Boolean);
+                              let _corrFormatted = t.correctAnswer;
+                              if (_corrLines.length > 1 && !/^\d+[\.\)]/.test(_corrLines[0])) {
+                                  _corrFormatted = _corrLines.map((l, i) => `${i + 1}) ${l}`).join('\n');
+                              }
+                              answerHtml += `<div style="font-size:11px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:0.5px;margin-top:12px;margin-bottom:6px;">Správná odpověď</div>
+                              <div style="font-size:13px;color:var(--text-primary);line-height:1.7;white-space:pre-wrap;background:rgba(16,185,129,0.05);border-radius:8px;padding:10px 14px;border:1px solid rgba(16,185,129,0.4);">${escapeHtml(_corrFormatted)}</div>`;
+                          }
                       }
                   }
 
@@ -1391,9 +1564,14 @@
                       questionDisplayHtml = qParts.join('');
                   }
 
+                  const _aiReasoningHtml = t.reasoning ? `<div style="margin-bottom:10px;padding:8px 12px;background:rgba(251,146,60,0.08);border-left:3px solid #f97316;border-radius:0 6px 6px 0;">
+                      <div style="font-size:11px;font-weight:700;color:#f97316;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Zdůvodnění hodnocení AI</div>
+                      <div style="font-size:12px;color:var(--text-primary);line-height:1.5;">${escapeHtml(t.reasoning)}</div>
+                  </div>` : '';
                   const feedbackHtml = `<div style="margin-top:12px;">
-                      <label style="font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:0.5px;">Zpětná vazba od AI pro studenta (lze upravit):</label>
-                      <textarea id="ai-scenario-feedback-${t.num}" class="ai-scenario-feedback-input" data-task="${t.num}" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid var(--border-color);border-left:3px solid #3b82f6;border-radius:0 6px 6px 0;background:rgba(59,130,246,0.07);color:var(--text-primary);font-size:13px;line-height:1.5;resize:vertical;min-height:60px;box-sizing:border-box;" oninput="window.updateAiScenarioFeedback()">${escapeHtml(t.feedback || '')}</textarea>
+                      ${_aiReasoningHtml}
+                      <label style="font-size:11px;font-weight:700;color:#3e67a8;text-transform:uppercase;letter-spacing:0.5px;">Zpětná vazba od AI pro studenta (lze upravit):</label>
+                      <textarea id="ai-scenario-feedback-${t.num}" class="ai-scenario-feedback-input" data-task="${t.num}" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid var(--border-color);border-left:3px solid #3e67a8;border-radius:0 6px 6px 0;background:rgba(62,103,168,0.07);color:var(--text-primary);font-size:13px;line-height:1.5;resize:vertical;min-height:60px;box-sizing:border-box;" oninput="window.updateAiScenarioFeedback()">${escapeHtml(t.feedback || '')}</textarea>
                   </div>`;
                   
                   // Nové políčko pro body (přesunuté dolů jako u NE-AI úloh)
@@ -1456,14 +1634,14 @@
                   <h4 style="margin:0 0 8px 0; color:var(--text-primary); font-size:15px;">Zadání úkolu:</h4>
                   <div style="font-size:14px; line-height:1.5; margin-bottom:18px; color:var(--text-primary); background:var(--bg-status); padding:16px; border-radius:8px; border:1px solid var(--border-color);">${finalInstructions.replace(/\n/g, '<br>')}</div>
                   <h4 style="margin:0 0 8px 0; color:var(--text-primary); font-size:15px;">Odevzdané řešení studenta:</h4>
-                  <div style="padding:16px; background:var(--bg-panel); border:2px solid #3b82f6; border-radius:8px; white-space:pre-wrap; font-family:monospace; font-size:14px; color:var(--text-primary); min-height:90px; box-shadow:inset 0 2px 4px rgba(0,0,0,0.05);">${escapeHtml(rawPayload || "Student neodevzdal žádné textové řešení.")}</div>
+                  <div style="padding:16px; background:var(--bg-panel); border:2px solid #3e67a8; border-radius:8px; white-space:pre-wrap; font-family:monospace; font-size:14px; color:var(--text-primary); min-height:90px; box-shadow:inset 0 2px 4px rgba(0,0,0,0.05);">${escapeHtml(rawPayload || "Student neodevzdal žádné textové řešení.")}</div>
               </div>`;
           }
       }
 
       preview.innerHTML = `
-        <div style="margin-bottom: 25px; border: 2px solid #3b82f6; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-            <div style="background: #3b82f6; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="margin-bottom: 25px; border: 2px solid #3e67a8; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+            <div style="background:var(--btn-primary); padding: 12px 18px; display: flex; justify-content: space-between; align-items: center;">
                 <span style="font-size: 16px; font-weight: bold; color: white; display: flex; align-items: center; gap: 8px;">
                     <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                     Hodnocený pokus (Odpovědi)
@@ -1514,7 +1692,10 @@
       let autoSuggestedScore = null;
       let autoSuggestedTotal = null;
       const rawForScore = submission?.contentPayload || '';
-      if (rawForScore) {
+      if (rawForScore.trimStart().startsWith('[AI_EDUCATION]')) {
+          const _eduSM = rawForScore.match(/Celkové skóre:\s*(\d+)\s*\/\s*(\d+)\s*b/);
+          if (_eduSM) { autoSuggestedScore = parseInt(_eduSM[1]); autoSuggestedTotal = parseInt(_eduSM[2]); }
+      } else if (rawForScore) {
           let earned = 0; let total = 0; let hasData = false;
           const normalizedForScore = rawForScore.replace(/(?=Krok\s+\d+:)/g, '\n').trim();
           normalizedForScore.split(/\\n|\n/).forEach(line => {
@@ -1534,7 +1715,10 @@
           } else if (autoSuggestedScore != null) {
               scoreHintEl.style.display = "block";
               const displayMax = autoSuggestedTotal ?? gMax;
-              scoreHintEl.innerText = `Celkový součet bodů ze všech kroků: ${autoSuggestedScore} / ${displayMax}`;
+              const _isEduHint = (submission?.contentPayload || '').trimStart().startsWith('[AI_EDUCATION]');
+              scoreHintEl.innerText = _isEduHint
+                  ? `Celkové skóre vzdělávání: ${autoSuggestedScore} / ${displayMax} b`
+                  : `Celkový součet bodů ze všech kroků: ${autoSuggestedScore} / ${displayMax}`;
           } else {
               scoreHintEl.style.display = "none";
           }
@@ -1566,7 +1750,7 @@
       if (!gradeBadgeEl) {
           gradeBadgeEl = document.createElement("span");
           gradeBadgeEl.id = "evalGradeBadge";
-          gradeBadgeEl.style.cssText = "font-size:14px;font-weight:bold;padding:2px 12px;border-radius:999px;margin-left:10px;display:inline-block;vertical-align:middle;";
+          gradeBadgeEl.className = 'grade-badge';
           inputEl.insertAdjacentElement('afterend', gradeBadgeEl);
       }
       gradeBadgeEl.textContent = '';
@@ -1575,7 +1759,7 @@
       if (!document.getElementById("evalScoreRow")) {
           const wrapper = document.createElement("div");
           wrapper.id = "evalScoreRow";
-          wrapper.style.cssText = "display:flex;align-items:center;gap:0;";
+          wrapper.className = 'eval-score-row';
           inputEl.parentNode.insertBefore(wrapper, inputEl);
           wrapper.appendChild(inputEl);
           wrapper.appendChild(gradeBadgeEl);
@@ -1586,6 +1770,9 @@
 
       const _updateGradeBadge = (val) => {
           if (gStyle === 'none') {
+              gradeBadgeEl.style.display = 'none'; return;
+          }
+          if ((submission?.contentPayload || '').trimStart().startsWith('[AI_EDUCATION]')) {
               gradeBadgeEl.style.display = 'none'; return;
           }
           if (val === '' || val === null || val === undefined) val = 0;
@@ -1706,6 +1893,7 @@
             ...r,
             points: openStepPoints[String(r.step)] !== undefined ? openStepPoints[String(r.step)] : r.points,
             feedback: openStepFeedbacks[String(r.step)] !== undefined ? openStepFeedbacks[String(r.step)] : r.feedback,
+            // reasoning záměrně nepřepisujeme — zachováváme původní AI zdůvodnění
         }));
         // Přidej kroky které jsou v DOM ale ne v cache (např. po ručním zadání bez AI)
         Object.entries(openStepPoints).forEach(([sNum, pts]) => {
@@ -1715,7 +1903,7 @@
                     points: pts,
                     maxPoints: Number(document.getElementById(`step-points-input-${sNum}`)?.max || document.getElementById(`ai-scenario-points-${sNum}`)?.max || 0),
                     feedback: openStepFeedbacks[sNum] || '',
-                    reasoning: ''
+                    reasoning: existingAiCache?.perStepResults?.find(r => String(r.step) === sNum)?.reasoning || ''
                 });
             }
         });
@@ -2034,11 +2222,12 @@
                     } else {
                         // Žádné otevřené úkoly — jen vygeneruj celkovou zpětnou vazbu
                         try {
+
                             const _strictLines = allTasks.map((t, idx) => {
                                 const sNum = String(idx + 1);
                                 const _det = stepDetails[sNum];
                                 const _pts = Number(t?.points || 0);
-                                const _earned = _det?.points_earned ?? null;
+                                const _earned = window._structuredStepDetails?.[sNum]?.points_earned ?? _det?.points_earned ?? null;
                                 const _ans = _det?.answer || '(bez odpovědi)';
                                 if (_earned !== null && _pts > 0) {
                                     return `Krok ${sNum} (${_earned}/${_pts} b): "${_ans.slice(0,80)}" — ${_earned >= _pts ? 'správně' : 'špatně'}.`;
@@ -2047,8 +2236,10 @@
                             }).filter(Boolean).join('\n');
                             const _totalStrict = allTasks.reduce((s, t) => s + Number(t?.points || 0), 0);
                             const _earnedStrict = allTasks.reduce((s, t, idx) => {
-                                const _det = stepDetails[String(idx + 1)];
-                                return s + Number(_det?.points_earned ?? 0);
+                                const sNum = String(idx + 1);
+                                const _det = stepDetails[sNum];
+                                const _earned = window._structuredStepDetails?.[sNum]?.points_earned ?? _det?.points_earned ?? 0;
+                                return s + Number(_earned);
                             }, 0);
                             const _ctx = `Celkové skóre studenta: ${_earnedStrict} / ${_totalStrict} bodů\n${_strictLines}`;
                             const synthRes = await fetch(`${API_BASE}/api/ai/synthesize-feedback`, {

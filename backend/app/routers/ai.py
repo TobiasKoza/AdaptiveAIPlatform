@@ -92,17 +92,39 @@ def create_adaptive_scenario(
     # Vybereme lab template podle OS
     labtemplates = get_labtemplates_table()
     template_id = None
-    for t in labtemplates.list_entities():
-        if t.get("status") != "active":
-            continue
-        image = t.get("labImage", "")
-        os_match = (
-            (payload.required_os == "kali" and "adaptive-lab-kali" in image) or
-            (payload.required_os == "ubuntu" and "ubuntu" in image)
-        )
-        if os_match:
-            template_id = t.get("RowKey")
-            break
+
+    if payload.required_os == "none":
+        # Žádné virtuální prostředí — sdílená base šablona
+        template_id = "base-none"
+        try:
+            labtemplates.get_entity(partition_key="LABTEMPLATE", row_key="base-none")
+        except Exception:
+            labtemplates.create_entity(entity={
+                "PartitionKey": "LABTEMPLATE",
+                "RowKey": "base-none",
+                "template_id": "base-none",
+                "title": "Žádné virtuální prostředí",
+                "labImage": "skip",
+                "fileShareName": "labs",
+                "mountPath": "/mnt/output",
+                "timeoutSeconds": 0,
+                "status": "active",
+            })
+    elif payload.required_os.startswith("custom:"):
+        # Custom lab image — template ID je přímo zakódováno v hodnotě
+        template_id = payload.required_os.replace("custom:", "")
+    else:
+        for t in labtemplates.list_entities():
+            if t.get("status") != "active":
+                continue
+            image = t.get("labImage", "")
+            os_match = (
+                (payload.required_os == "kali" and "adaptive-lab-kali" in image) or
+                (payload.required_os == "ubuntu" and "ubuntu" in image)
+            )
+            if os_match:
+                template_id = t.get("RowKey")
+                break
 
     if not template_id:
         raise HTTPException(status_code=404, detail=f"Nebyl nalezen aktivní lab template pro OS '{payload.required_os}'.")
@@ -212,7 +234,7 @@ def update_adaptive_scenario(
 
 # ─── Materiály AI scénáře ────────────────────────────────────────────────────
 
-ALLOWED_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "docx", "pptx", "mp4", "txt", "md"}
+ALLOWED_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "docx", "pptx", "mp4", "txt", "md", "xlsx", "csv"}
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
 
 def get_ai_blob_service():
@@ -395,10 +417,9 @@ class AIChatRequest(BaseModel):
 async def ai_chat(data: AIChatRequest, current_user=Depends(get_current_user)):
     """Obecný AI chat endpoint pro studentský portál (generování intro, podúkolů, hodnocení)."""
     from app.services.ai_evaluator import get_ai_client
-    import json
 
-    client = get_ai_client()
     try:
+        client = get_ai_client()
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -435,12 +456,14 @@ async def ai_evaluate_subtask(data: AIEvaluateSubtaskRequest, current_user=Depen
         raw = response.choices[0].message.content.strip()
         parsed = json.loads(raw)
         points = max(0, min(int(data.max_points), int(round(float(parsed.get("points", 0))))))
-        return {
+        result = {
             "points": points,
             "feedback": str(parsed.get("feedback", "")).strip(),
+            "reasoning": str(parsed.get("reasoning", "")).strip(),
             "correct_answer": parsed.get("correct_answer") or None,
             "explanation": parsed.get("explanation") or None,
         }
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI chyba: {str(e)}")
 

@@ -26,7 +26,7 @@ sudo rm -rf /tmp/.X1-lock /tmp/.X11-unix/X1
 
 # Spuštění VNC serveru (přidali jsme -fg aby běžel na popředí a neumřel)
 # A -SecurityTypes None pro jednodušší ladění (heslo student zůstává)
-vncserver :1 -geometry 1280x720 -depth 24 -localhost no -rfbauth $HOME/.vnc/passwd
+vncserver :1 -geometry 1280x720 -depth 24 -localhost no -SecurityTypes None --I-KNOW-THIS-IS-INSECURE
 
 # Krátká pauza, aby se X server stihl nastartovat
 sleep 2

@@ -1,4 +1,4 @@
-let _customLabTemplatesCache = [];
+﻿let _customLabTemplatesCache = [];
 let _customLabTemplatesLoading = false;
 let _customLabTemplatesLoaded = false;
 
@@ -36,14 +36,14 @@ function _renderCustomLabTemplates(templates) {
     const rows = templates.map(t => `
         <tr>
             <td style="font-weight: 600;">${escapeHtml(t.title)}</td>
-            <td><span style="background: #dbeafe; color: #2563eb; padding: 2px 8px; border-radius: 12px; font-size: 12px;">Custom</span></td>
+            <td><span style="background: #dbeafe; color: #3e67a8; padding: 2px 8px; border-radius: 12px; font-size: 12px;">Custom</span></td>
             <td style="font-size: 13px; color: var(--text-muted);">${escapeHtml(_baseImageLabel(t.baseImage))}</td>
             <td style="font-size: 13px; color: var(--text-muted);">${escapeHtml(t.description || '—')}</td>
             <td style="font-size: 13px; color: var(--text-muted);">${t.initBlobPrefix ? 'Ano' : '—'}</td>
             <td style="font-size: 12px; color: var(--text-muted);">${escapeHtml(t.createdBy || '—')}</td>
             <td style="font-size: 12px; color: var(--text-muted);">${escapeHtml(t.templateId || '')}</td>
             <td style="white-space: nowrap;">
-                <button class="btn-small" style="background: #2563eb; padding: 3px 10px; font-size: 12px; margin-right: 4px;"
+                <button class="btn-small" style="background:var(--btn-primary); padding: 3px 10px; font-size: 12px; margin-right: 4px;"
                     onclick="openImageManagementModal('${escapeHtml(t.templateId)}', '${escapeJsString(t.title)}', '${escapeHtml(t.createdBy || '')}')">Správa image</button>
                 <button class="btn-small" style="background: #dc2626; padding: 3px 10px; font-size: 12px;"
                     onclick="deleteCustomLabTemplate('${escapeHtml(t.templateId)}', '${escapeJsString(t.title)}')">Smazat</button>
@@ -119,16 +119,16 @@ async function openImageManagementModal(templateId, templateTitle, createdBy) {
 
     const overlay = document.createElement('div');
     overlay.id = '_imageManagementModalOverlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;justify-content:center;align-items:center;z-index:9000;';
+    overlay.className = 'labtpl-overlay';
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 
     const panel = document.createElement('div');
-    panel.style.cssText = 'background:var(--bg-panel);border:2px solid #2563eb;border-radius:12px;padding:24px;width:760px;max-width:96vw;max-height:88vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.25);display:flex;flex-direction:column;gap:14px;';
+    panel.className = 'labtpl-panel';
 
     const header = document.createElement('div');
-    header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;';
+    header.className = 'labtpl-header';
     const h3 = document.createElement('h3');
-    h3.style.cssText = 'margin:0;color:var(--text-primary);';
+    h3.className = 'labtpl-h3';
     h3.textContent = `Správa image — ${templateTitle}`;
     const closeBtn = document.createElement('button');
     closeBtn.className = 'btn-small';
@@ -139,7 +139,7 @@ async function openImageManagementModal(templateId, templateTitle, createdBy) {
     panel.appendChild(header);
 
     const tabBar = document.createElement('div');
-    tabBar.style.cssText = 'background:var(--bg-status);border-bottom:1px solid var(--border-color);padding:10px 20px;text-align:center;margin:-14px -24px 0;';
+    tabBar.className = 'labtpl-tabbar';
 
     const tabInit = document.createElement('button');
     tabInit.className = 'tab-btn active-tab';
@@ -155,9 +155,10 @@ async function openImageManagementModal(templateId, templateTitle, createdBy) {
 
     // --- Tab content containers ---
     const contentInit = document.createElement('div');
-    contentInit.style.cssText = 'padding-top:14px;';
+    contentInit.className = 'labtpl-content';
     const contentFiles = document.createElement('div');
-    contentFiles.style.cssText = 'display:none;padding-top:14px;';
+    contentFiles.className = 'labtpl-content';
+    contentFiles.style.display = 'none';
     panel.appendChild(contentInit);
     panel.appendChild(contentFiles);
 
@@ -180,7 +181,7 @@ async function openImageManagementModal(templateId, templateTitle, createdBy) {
 
     // ===================== INIT SCRIPT TAB =====================
     const loadingEl = document.createElement('p');
-    loadingEl.style.cssText = 'color:var(--text-muted);margin:0;';
+    loadingEl.className = 'labtpl-label';
     loadingEl.textContent = 'Načítám init script...';
     contentInit.appendChild(loadingEl);
 
@@ -201,7 +202,7 @@ async function openImageManagementModal(templateId, templateTitle, createdBy) {
     contentInit.removeChild(loadingEl);
 
     const initLabel = document.createElement('label');
-    initLabel.style.cssText = 'font-size:13px;color:var(--text-muted);';
+    initLabel.className = 'labtpl-label';
     initLabel.textContent = canEdit ? 'Obsah init scriptu (lze editovat):' : 'Obsah init scriptu (pouze pro čtení):';
     contentInit.appendChild(initLabel);
 
@@ -209,20 +210,20 @@ async function openImageManagementModal(templateId, templateTitle, createdBy) {
     textarea.rows = 18;
     textarea.value = scriptContent;
     textarea.disabled = !canEdit;
-    textarea.style.cssText = 'width:100%;box-sizing:border-box;font-family:monospace;font-size:13px;padding:10px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-status);color:var(--text-primary);resize:vertical;';
+    textarea.className = 'labtpl-textarea';
     if (!canEdit) textarea.style.opacity = '0.75';
     contentInit.appendChild(textarea);
 
     const initFooter = document.createElement('div');
-    initFooter.style.cssText = 'display:flex;justify-content:flex-end;gap:10px;align-items:center;margin-top:6px;';
+    initFooter.className = 'labtpl-footer';
 
     if (canEdit) {
         const statusEl = document.createElement('span');
-        statusEl.style.cssText = 'font-size:13px;color:var(--text-muted);';
+        statusEl.className = 'labtpl-status';
 
         const saveBtn = document.createElement('button');
         saveBtn.className = 'btn-small';
-        saveBtn.style.background = '#2563eb';
+        saveBtn.style.background = 'var(--btn-primary)';
         saveBtn.style.color = '#fff';
         saveBtn.textContent = 'Uložit změny';
         saveBtn.onclick = async () => {
@@ -252,7 +253,7 @@ async function openImageManagementModal(templateId, templateTitle, createdBy) {
     // AI tlačítko (pro všechny — čtecí i editační)
     const aiBtn = document.createElement('button');
     aiBtn.className = 'btn-small';
-    aiBtn.style.cssText = 'background:#8b5cf6;color:#fff;display:flex;align-items:center;gap:6px;margin-right:auto;';
+    aiBtn.classList.add('labtpl-ai-btn');
     aiBtn.innerHTML = `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg> AI pomoc`;
     aiBtn.onclick = async () => {
         const tmpl = _customLabTemplatesCache.find(t => t.templateId === templateId);
@@ -294,12 +295,12 @@ async function _loadFilesTab(templateId, canEdit, container) {
 
     if (!files.length) {
         const empty = document.createElement('p');
-        empty.style.cssText = 'color:var(--text-muted);margin:0;';
+        empty.className = 'labtpl-label';
         empty.textContent = 'Žádné soubory (kromě init.sh).';
         container.appendChild(empty);
     } else {
         const table = document.createElement('table');
-        table.style.cssText = 'width:100%;border-collapse:collapse;font-size:13px;';
+        table.className = 'labtpl-table';
         const thead = document.createElement('thead');
         thead.innerHTML = `<tr>
             <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border-color);">Název</th>
@@ -345,7 +346,7 @@ async function _loadFilesTab(templateId, canEdit, container) {
     // Upload section (only for editors)
     if (canEdit) {
         const sep = document.createElement('hr');
-        sep.style.cssText = 'border:none;border-top:1px solid var(--border-color);margin:14px 0;';
+        sep.className = 'labtpl-sep';
         container.appendChild(sep);
 
         const fileInput = document.createElement('input');
@@ -356,10 +357,10 @@ async function _loadFilesTab(templateId, canEdit, container) {
 
         // Drop zone (same style as course materials tab)
         const dropZone = document.createElement('div');
-        dropZone.style.cssText = 'border:2px dashed var(--border-color);border-radius:8px;padding:22px 16px;text-align:center;color:var(--text-muted);font-size:13px;cursor:pointer;transition:background 0.2s,border-color 0.2s;margin-bottom:12px;user-select:none;';
+        dropZone.className = 'labtpl-drop-zone';
         dropZone.innerHTML = `
             <div style="margin-bottom:8px;pointer-events:none;">
-                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><polyline points="9 14 12 17 15 14"/></svg>
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--btn-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><polyline points="9 14 12 17 15 14"/></svg>
             </div>
             <div style="font-weight:bold;color:var(--text-primary);margin-bottom:4px;pointer-events:none;">Přetáhněte soubory sem nebo klikněte pro výběr</div>
             <div style="font-size:11px;pointer-events:none;">Libovolné soubory · max 50 MB celkem</div>`;
@@ -383,7 +384,7 @@ async function _loadFilesTab(templateId, canEdit, container) {
         container.appendChild(dropZone);
 
         const uploadStatus = document.createElement('div');
-        uploadStatus.style.cssText = 'font-size:13px;color:var(--text-muted);min-height:18px;margin-bottom:6px;';
+        uploadStatus.className = 'labtpl-upload-status';
         container.appendChild(uploadStatus);
 
         async function _doUpload(fileList) {
@@ -427,17 +428,17 @@ function openInitScriptAiModal({ baseImage = 'kali', files = [], onInsert }) {
 
     const overlay = document.createElement('div');
     overlay.id = '_aiInitScriptModalOverlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;z-index:9100;';
+    overlay.className = 'labtpl-ai-overlay';
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 
     // --- Panel ---
     const panel = document.createElement('div');
-    panel.style.cssText = 'background:var(--bg-panel);border:2px solid #8b5cf6;border-radius:12px;padding:24px;width:700px;max-width:96vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.3);display:flex;flex-direction:column;gap:16px;';
+    panel.className = 'labtpl-ai-panel';
 
     const header = document.createElement('div');
-    header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;';
+    header.className = 'labtpl-header';
     const h3 = document.createElement('h3');
-    h3.style.cssText = 'margin:0;color:var(--text-primary);display:flex;align-items:center;gap:8px;';
+    h3.className = 'labtpl-ai-h3';
     h3.innerHTML = `<svg width="20" height="20" fill="none" stroke="#8b5cf6" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg> AI asistent — init script`;
     const closeBtn = document.createElement('button');
     closeBtn.className = 'btn-small';
@@ -448,15 +449,15 @@ function openInitScriptAiModal({ baseImage = 'kali', files = [], onInsert }) {
     panel.appendChild(header);
 
     const baseInfo = document.createElement('p');
-    baseInfo.style.cssText = 'margin:0;font-size:13px;color:var(--text-muted);';
+    baseInfo.className = 'labtpl-base-info';
     baseInfo.textContent = `Base image: ${baseImage === 'kali' ? 'Kali Linux (GUI)' : 'Ubuntu (CLI)'}`;
     panel.appendChild(baseInfo);
 
     const filesSection = document.createElement('div');
-    filesSection.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+    filesSection.className = 'labtpl-files-section';
 
     const filesLabel = document.createElement('div');
-    filesLabel.style.cssText = 'font-size:13px;font-weight:600;color:var(--text-primary);';
+    filesLabel.className = 'labtpl-files-label';
     filesLabel.textContent = files.length
         ? 'Nahrané soubory — zadejte kam je umístit v kontejneru:'
         : 'Žádné soubory nebyly nahrány (init script může stahovat z internetu).';
@@ -465,17 +466,17 @@ function openInitScriptAiModal({ baseImage = 'kali', files = [], onInsert }) {
     const pathInputs = {};   // filename -> input element
     files.forEach(fname => {
         const row = document.createElement('div');
-        row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center;';
+        row.className = 'labtpl-file-row';
 
         const nameEl = document.createElement('span');
-        nameEl.style.cssText = 'font-size:13px;font-family:monospace;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+        nameEl.className = 'labtpl-file-name';
         nameEl.title = fname;
         nameEl.textContent = fname;
 
         const pathEl = document.createElement('input');
         pathEl.type = 'text';
         pathEl.placeholder = `/root/lab/${fname}`;
-        pathEl.style.cssText = 'font-size:13px;font-family:monospace;padding:5px 8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-status);color:var(--text-primary);';
+        pathEl.className = 'labtpl-path-input';
 
         pathInputs[fname] = pathEl;
         row.appendChild(nameEl);
@@ -485,30 +486,30 @@ function openInitScriptAiModal({ baseImage = 'kali', files = [], onInsert }) {
     panel.appendChild(filesSection);
 
     const goalLabel = document.createElement('label');
-    goalLabel.style.cssText = 'font-size:13px;font-weight:600;color:var(--text-primary);display:block;';
+    goalLabel.className = 'labtpl-goal-label';
     goalLabel.textContent = 'Co má student v labu dělat / jaký je cíl cvičení?';
     panel.appendChild(goalLabel);
 
     const goalHint = document.createElement('p');
-    goalHint.style.cssText = 'margin:2px 0 4px;font-size:12px;color:var(--text-muted);';
+    goalHint.className = 'labtpl-goal-hint';
     goalHint.textContent = 'Čím konkrétnější popis, tím přesnější script. Např. „Student najde flag ve skrytém souboru" nebo „Analyzuje malware přes Wireshark".';
     panel.appendChild(goalHint);
 
     const goalTextarea = document.createElement('textarea');
     goalTextarea.rows = 4;
     goalTextarea.placeholder = 'Popište cíl a kontext labu...';
-    goalTextarea.style.cssText = 'width:100%;box-sizing:border-box;padding:10px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-status);color:var(--text-primary);font-size:13px;resize:vertical;';
+    goalTextarea.className = 'labtpl-textarea';
     panel.appendChild(goalTextarea);
 
     const genRow = document.createElement('div');
-    genRow.style.cssText = 'display:flex;align-items:center;gap:12px;';
+    genRow.className = 'labtpl-gen-row';
 
     const genStatus = document.createElement('span');
-    genStatus.style.cssText = 'font-size:13px;color:var(--text-muted);';
+    genStatus.className = 'labtpl-gen-status';
 
     const genBtn = document.createElement('button');
     genBtn.className = 'btn-small';
-    genBtn.style.cssText = 'background:#8b5cf6;color:#fff;display:flex;align-items:center;gap:6px;';
+    genBtn.classList.add('labtpl-gen-btn');
     genBtn.innerHTML = `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg> Vygenerovat init script`;
 
     genRow.appendChild(genStatus);
@@ -517,20 +518,20 @@ function openInitScriptAiModal({ baseImage = 'kali', files = [], onInsert }) {
 
     // Výsledná oblast (skrytá dokud není vygenerováno)
     const resultSection = document.createElement('div');
-    resultSection.style.cssText = 'display:none;flex-direction:column;gap:10px;';
+    resultSection.className = 'labtpl-result-section';
 
     const resultLabel = document.createElement('div');
-    resultLabel.style.cssText = 'font-size:13px;font-weight:600;color:var(--text-primary);';
+    resultLabel.className = 'labtpl-result-label';
     resultLabel.textContent = 'Navržený init script:';
     resultSection.appendChild(resultLabel);
 
     const resultTextarea = document.createElement('textarea');
     resultTextarea.rows = 16;
-    resultTextarea.style.cssText = 'width:100%;box-sizing:border-box;font-family:monospace;font-size:12px;padding:10px;border-radius:6px;border:1px solid #8b5cf6;background:var(--bg-status);color:var(--text-primary);resize:vertical;';
+    resultTextarea.className = 'labtpl-textarea labtpl-result-textarea';
     resultSection.appendChild(resultTextarea);
 
     const useRow = document.createElement('div');
-    useRow.style.cssText = 'display:flex;justify-content:flex-end;gap:10px;align-items:center;';
+    useRow.className = 'labtpl-use-row';
 
     const regenBtn = document.createElement('button');
     regenBtn.className = 'btn-small';
@@ -539,7 +540,7 @@ function openInitScriptAiModal({ baseImage = 'kali', files = [], onInsert }) {
 
     const useBtn = document.createElement('button');
     useBtn.className = 'btn-small';
-    useBtn.style.cssText = 'background:#10b981;color:#fff;';
+    useBtn.classList.add('labtpl-insert-btn');
     useBtn.textContent = 'Vložit do init scriptu';
     useBtn.onclick = () => {
         if (onInsert) onInsert(resultTextarea.value);
@@ -593,12 +594,12 @@ function openInitScriptAiModal({ baseImage = 'kali', files = [], onInsert }) {
 }
 
 function _baseImageLabel(baseImage) {
-    const map = { kali: 'Kali Linux (GUI)', ubuntu: 'Ubuntu (CLI)' };
+    const map = { kali: 'Kali Linux (GUI)', ubuntu: 'Ubuntu (GUI)' };
     return map[baseImage] || baseImage || '—';
 }
 
 function _populateCustomLabOptions(allTemplates) {
-    const selects = document.querySelectorAll('#scenarioRequiredOs, #edit_scenarioRequiredOs');
+    const selects = document.querySelectorAll('#scenarioRequiredOs, #edit_scenarioRequiredOs, #aiScenarioRequiredOs, #aiEdit_os');
     selects.forEach(sel => {
         // Remove previously added custom optgroup
         const existing = sel.querySelector('optgroup[data-custom="1"]');
@@ -698,3 +699,5 @@ async function deleteCustomLabTemplate(templateId, templateTitle) {
         showToast(`Chyba při mazání: ${err.message}`, true);
     }
 }
+
+

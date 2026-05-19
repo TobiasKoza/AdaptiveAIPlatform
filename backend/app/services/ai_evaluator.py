@@ -25,6 +25,15 @@ UNIVERZÁLNÍ PRAVIDLA HODNOCENÍ (platí vždy):
 2. Pokud napíše, že neví, netvrď, že neodpověděl! Uděl 0 bodů a místo toho napiš, že odpověď nezná, a povzbuď ho ke studiu.
 3. Pokud zkusí hádat (např. "nevím, asi 13.14.15.16"), hodnoť tento tip. NIKDY nepiš "zcela mimo téma", pokud odpověď drží formát (např. IPv4).
 4. Za "mimo téma" označuj POUZE odpovědi, které se absolutně netýkají zadání (např. recept na palačinky).
+5. U doplňovacích otázek (zadání obsahuje ___): hodnoť každé doplněné místo zvlášť a uděl částečné body pokud student doplnil aspoň část správně. Nepožaduj doslovnou shodu — akceptuj synonyma a ekvivalentní termíny.
+
+PRAVIDLA PRO POLE correct_answer:
+- U otázek ABCD: napiš písmeno i plný text, např. "A) Text možnosti"
+- U doplňovacích otázek (zadání obsahuje ___): použij PŘESNĚ tento formát:
+  1) první správné slovo nebo fráze
+  2) druhé správné slovo nebo fráze
+  (počet položek = počet ___ v zadání, BEZ lomítek a jiných oddělovačů)
+- U ostatních otázek: napiš správnou odpověď jako větu nebo frázi
 
 Zadání:
 {question}
@@ -42,7 +51,7 @@ Vrať odpověď POUZE jako JSON v tomto formátu:
   "points": <číslo>,
   "reasoning": "<stručné zdůvodnění pro učitele v češtině>",
   "feedback": "<stručná zpětná vazba pro studenta v češtině, BEZ správné odpovědi>",
-  "correct_answer": "<POVINNÉ pokud points < {max_points}: napiš správnou odpověď. Pokud student dostal plný počet bodů, napiš null>",
+  "correct_answer": "<Řídi se PRAVIDLY PRO POLE correct_answer uvedenými výše. Pokud student dostal plný počet bodů, napiš null>",
   "explanation": "<POVINNÉ pokud points < {max_points}: vysvětli proč je správná odpověď správná. Pokud student dostal plný počet bodů, napiš null>"
 }}"""
 
@@ -53,7 +62,9 @@ Vrať odpověď POUZE jako JSON v tomto formátu:
             response_format={"type": "json_object"}
         )
 
-        parsed = json.loads(response.choices[0].message.content)
+        raw = response.choices[0].message.content
+
+        parsed = json.loads(raw)
 
         try:
             points = int(round(float(parsed.get("points", 0))))
@@ -62,14 +73,15 @@ Vrať odpověď POUZE jako JSON v tomto formátu:
 
         points = max(0, min(int(max_points), points))
 
-        return {
+        result = {
             "points": points,
             "reasoning": str(parsed.get("reasoning", "")).strip(),
             "feedback": str(parsed.get("feedback", "")).strip(),
             "correct_answer": parsed.get("correct_answer") or None,
             "explanation": parsed.get("explanation") or None,
         }
-    except Exception:
+        return result
+    except Exception as e:
         return None
     
 def synthesize_final_feedback(feedbacks: str):
@@ -88,7 +100,6 @@ Pravidla pro první větu podle procent (body / maximum * 100):
 Pak shrň výkon přirozeně v 2-3 větách. Vždy vykat (vy/vás/vám/váš), nikdy tykat. Nevypisuj znovu body po krocích."""
 
     try:
-        # Zde záměrně nepožadujeme JSON (chybí response_format), chceme prostý text
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}]

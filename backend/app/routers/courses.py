@@ -47,6 +47,7 @@ class CourseScenarioUpdate(BaseModel):
     gradingRubric: Optional[str] = None
     assigned_to_groups: Optional[str] = None
     taskConfigJson: Optional[str] = None
+    requiredOs: Optional[str] = None
 
 
 def get_course_or_404(course_id: str) -> dict[str, Any]:
@@ -220,7 +221,7 @@ def list_course_members(course_id: str, current_user=Depends(get_current_user)):
     for e in entities:
         result.append({
             "userId": e.get("RowKey"),
-            "role": e.get("role_in_course"),
+            "role": e.get("role_in_course") or "student",
             "status": e.get("status", "active")
         })
     return result
@@ -236,7 +237,6 @@ def add_course_member(course_id: str, payload: CourseMemberCreateRequest, curren
     except ResourceNotFoundError:
         raise HTTPException(status_code=404, detail="Kurz nebyl nalezen.")
 
-    # ÚPRAVA: Jen admin, nebo učitel KTERÝ SPRAVUJE TENTO KURZ může přidávat členy a další správce
     if current_user.get("global_role") != "admin":
         membership = get_course_membership(course_id, current_user["user_id"])
         if not membership or membership.get("role_in_course") != "teacher":
@@ -254,7 +254,7 @@ def add_course_member(course_id: str, payload: CourseMemberCreateRequest, curren
         "RowKey": payload.user_id,
         "course_id": course_id,
         "user_id": payload.user_id,
-        "role_in_course": payload.role_in_course,
+        "role_in_course": payload.role_in_course or "student",
         "status": new_status,
         "joined_at": utc_now_iso(),
     }
@@ -317,13 +317,16 @@ def list_course_scenarios(course_id: str, current_user=Depends(get_current_user)
         if is_student and course_entity.get("status") == "inactive":
             continue
 
-        # Filtrace podle assigned_to_groups — BLACKLIST
-        # Skupiny v tomto poli NEMAJÍ přístup k zadání
+        # Filtrace podle assigned_to_groups — WHITELIST
+        # Prázdné pole = všichni studenti vidí zadání
+        # "HIDDEN_FROM_ALL" = nikdo nevidí
+        # Neprázdné pole = jen studenti v uvedených skupinách vidí zadání
         assigned_groups_str = course_entity.get("assigned_to_groups")
         if is_student and assigned_groups_str:
-            hidden_groups = [g.strip() for g in assigned_groups_str.split(",") if g.strip()]
-            # Pokud je student v některé ze SKRYTÝCH skupin, zadání mu nepošleme
-            if any(g in hidden_groups for g in student_groups):
+            if assigned_groups_str == "HIDDEN_FROM_ALL":
+                continue
+            allowed_groups = [g.strip() for g in assigned_groups_str.split(",") if g.strip()]
+            if allowed_groups and not any(g in allowed_groups for g in student_groups):
                 continue
 
         scenario_template_id = course_entity.get("scenarioTemplateId")
@@ -360,6 +363,9 @@ def list_course_scenarios(course_id: str, current_user=Depends(get_current_user)
             "additionalManagers": course_entity.get("additionalManagers", ""),
             "assigned_to_groups": assigned_groups_str,
             "taskConfigJson": template.get("taskConfigJson", ""),
+            "prereqs": [p.strip() for p in (lambda m: m.group(1).split(",") if m else [])(
+                __import__("re").search(r'\[PREREQS:([^\]]+)\]', template.get("hints", ""))
+            )],
         })
 
     result.sort(key=lambda x: x["title"] or "")
@@ -411,7 +417,7 @@ def list_my_course_attempts(course_id: str, current_user=Depends(get_current_use
         if entity.get("userId") != current_user["user_id"]:
             continue
 
-        result.append({
+        _entry: dict = {
             "attemptId": entity.get("attemptId"),
             "scenarioId": entity.get("scenarioId", ""),
             "guiUrl": entity.get("guiUrl", ""),
@@ -426,7 +432,11 @@ def list_my_course_attempts(course_id: str, current_user=Depends(get_current_use
             "feedbackAt": entity.get("feedbackAt", ""),
             "score": entity.get("score", None),
             "runNumber": entity.get("runNumber", 1),
-        })
+        }
+        _pai = entity.get("pausedAiState", "") or ""
+        if _pai:
+            _entry["pausedAiState"] = _pai
+        result.append(_entry)
 
     result.sort(key=lambda x: x["createdAt"] or "", reverse=True)
     return result
@@ -479,7 +489,6 @@ def remove_course_member(course_id: str, user_id: str, current_user=Depends(get_
     except ResourceNotFoundError:
         raise HTTPException(status_code=404, detail="Kurz nenalezen.")
 
-    # ÚPRAVA 1: Nikdo (kromě globálního Admina) nesmí smazat majitele kurzu
     if user_id == course.get("owner_user_id") and current_user.get("global_role") != "admin":
         raise HTTPException(status_code=403, detail="Nelze odebrat zakladatele kurzu.")
 
@@ -571,9 +580,8 @@ def update_course_scenario(course_id: str, scenario_id: str, payload: CourseScen
     if payload.assigned_to_groups is not None: cs_entity["assigned_to_groups"] = payload.assigned_to_groups
 
     cs_table.update_entity(mode=UpdateMode.REPLACE, entity=cs_entity)
-    
-    # Aktualizace dat v ScenarioTemplate (včetně variant a řešení uložených v hints/expectedOutputs)
-    if any(x is not None for x in [payload.title, payload.description, payload.instructions, payload.hints, payload.expectedOutputs, payload.gradingRubric, payload.taskConfigJson]):
+
+    if any(x is not None for x in [payload.title, payload.description, payload.instructions, payload.hints, payload.expectedOutputs, payload.gradingRubric, payload.taskConfigJson, payload.requiredOs]):
         template_id = cs_entity.get("scenarioTemplateId")
         if template_id:
             scenarios_table = get_scenarios_table()
@@ -586,7 +594,8 @@ def update_course_scenario(course_id: str, scenario_id: str, payload: CourseScen
                 if payload.expectedOutputs is not None: sc_entity["expectedOutputs"] = payload.expectedOutputs
                 if payload.gradingRubric is not None: sc_entity["gradingRubric"] = payload.gradingRubric
                 if payload.taskConfigJson is not None: sc_entity["taskConfigJson"] = payload.taskConfigJson
-                
+                if payload.requiredOs is not None: sc_entity["requiredOs"] = payload.requiredOs
+
                 scenarios_table.update_entity(mode=UpdateMode.REPLACE, entity=sc_entity)
             except ResourceNotFoundError:
                 pass
@@ -649,7 +658,6 @@ def create_ai_scenario(course_id: str, payload: AIScenarioPayload, current_user=
     if current_user.get("global_role") not in ["teacher", "admin"]:
         raise HTTPException(status_code=403, detail="Nedostatečná oprávnění k tvorbě AI scénářů.")
 
-    # Vygenerování unikátních ID z názvu
     clean_title = re.sub(r'[^\w-]', '', payload.title.lower().replace(' ', '-'))
     auto_id = f"{clean_title}-{random.randint(100, 999)}"
     
@@ -657,30 +665,55 @@ def create_ai_scenario(course_id: str, payload: AIScenarioPayload, current_user=
     scenario_template_id = f"{auto_id}-template"
     course_scenario_id = auto_id
 
-    # Namapování image podle OS (připraveno na Kali Linux)
-    lab_image = "adaptivekoza01.azurecr.io/adaptive-lab-kali:v1" if payload.requiredOs == "kali" else "ubuntu"
+    _os_image_map = {
+        "kali": "adaptivekoza01.azurecr.io/adaptive-lab-kali:v3",
+        "ubuntu": "adaptivekoza01.azurecr.io/adaptive-lab-kali:ubuntu-v1",
+        "none": "skip",
+    }
+    lab_image = _os_image_map.get(payload.requiredOs, "skip")
+
+    # Pro none přeskočíme vytváření unikátní technické šablony a použijeme sdílenou base-none
+    _use_base_none = payload.requiredOs == "none"
+    if _use_base_none:
+        tech_template_id = "base-none"
 
     try:
-        # A) Uložení technické šablony (Lab Template)
         table_client_labtemplates = get_labtemplates_table()
-        lab_template_entity = {
-            "PartitionKey": "LABTEMPLATE",
-            "RowKey": tech_template_id,
-            "template_id": tech_template_id,
-            "title": f"AI Mentor Lab ({payload.title})",
-            "labImage": lab_image,
-            "fileShareName": "labs",
-            "mountPath": "/mnt/output",
-            "timeoutSeconds": payload.timeLimit * 60,
-            "cpu": 2,
-            "memoryGb": 4,
-            "createdBy": current_user["user_id"],
-            "createdAt": utc_now_iso(),
-            "status": "active"
-        }
-        table_client_labtemplates.create_entity(entity=lab_template_entity)
 
-        # B) Uložení pedagogické šablony (Scenario Template)
+        if _use_base_none:
+            # Sdílená base šablona — idempotentní
+            try:
+                table_client_labtemplates.get_entity(partition_key="LABTEMPLATE", row_key="base-none")
+            except Exception:
+                table_client_labtemplates.create_entity(entity={
+                    "PartitionKey": "LABTEMPLATE",
+                    "RowKey": "base-none",
+                    "template_id": "base-none",
+                    "title": "Žádné virtuální prostředí",
+                    "labImage": "skip",
+                    "fileShareName": "labs",
+                    "mountPath": "/mnt/output",
+                    "timeoutSeconds": 0,
+                    "status": "active",
+                })
+        else:
+            lab_template_entity = {
+                "PartitionKey": "LABTEMPLATE",
+                "RowKey": tech_template_id,
+                "template_id": tech_template_id,
+                "title": f"AI Mentor Lab ({payload.title})",
+                "labImage": lab_image,
+                "fileShareName": "labs",
+                "mountPath": "/mnt/output",
+                "timeoutSeconds": payload.timeLimit * 60,
+                "cpu": 2,
+                "memoryGb": 4,
+                "createdBy": current_user["user_id"],
+                "createdAt": utc_now_iso(),
+                "status": "active"
+            }
+            table_client_labtemplates.create_entity(entity=lab_template_entity)
+
         table_client_scenariotemplates = get_scenarios_table()
         scenario_template_entity = {
             "PartitionKey": "SCENARIO_TEMPLATE",
@@ -701,7 +734,6 @@ def create_ai_scenario(course_id: str, payload: AIScenarioPayload, current_user=
         }
         table_client_scenariotemplates.create_entity(entity=scenario_template_entity)
 
-        # C) Propojení s kurzem (Course Scenario)
         table_client_coursescenarios = get_course_scenarios_table()
         course_scenario_entity = {
             "PartitionKey": course_id,
@@ -729,16 +761,13 @@ async def upload_scenario_image(
     file: UploadFile = File(...),
     current_user=Depends(get_current_user)
 ):
-    # Kontrola oprávnění
     membership = require_course_membership(course_id, current_user["user_id"])
     if membership.get("role_in_course") not in ["teacher", "admin"] and current_user.get("global_role") != "admin":
         raise HTTPException(status_code=403, detail="Pouze učitel může nahrávat obrázky.")
 
-    # Vygenerování unikátní cesty na Blob Storage
     ext = file.filename.split(".")[-1].lower() if "." in file.filename else "jpg"
     blob_name = f"scenarios/{course_id}/{uuid.uuid4().hex}.{ext}"
 
-    # Nahrání na Blob Storage (používáme stejný kontejner jako pro materiály)
     blob_service = get_blob_service()
     container_name = get_blob_container_name()
     blob_client = blob_service.get_blob_client(container=container_name, blob=blob_name)
@@ -763,7 +792,6 @@ def get_scenario_image(course_id: str, blob_name_b64: str):
         download_stream = blob_client.download_blob()
         data = download_stream.readall()
         
-        # Odhad formátu pro správné vykreslení
         ext = blob_name.split(".")[-1].lower()
         media_type = "image/jpeg"
         if ext == "png": media_type = "image/png"

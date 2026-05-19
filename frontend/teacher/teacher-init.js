@@ -1,4 +1,4 @@
-    const API_BASE = "http://127.0.0.1:8000";
+﻿    const API_BASE = "http://127.0.0.1:8000";
     let selectedAttemptId = null;
     let selectedSubmissionId = null;
     let loadedAttempts = [];
@@ -76,7 +76,7 @@
             const id = getGroupId(g);
             const name = getGroupTitle(g);
             const isChecked = checkedIds.includes(id) ? 'checked' : '';
-            return `<label style="display:flex; align-items:center; width:100%; box-sizing:border-box; cursor:pointer; margin-bottom:0; font-weight:normal; color:var(--text-primary); padding:4px 6px; border-radius:4px;" onmouseover="this.style.background='var(--bg-status)'" onmouseout="this.style.background='transparent'">
+            return `<label class="group-list-item">
                         <input type="checkbox" value="${id}" ${isChecked} style="width:16px; height:16px; margin:0 8px 0 0; padding:0; cursor:pointer; flex-shrink:0;" onchange="window.updateMultiSelectLabels(); document.getElementById('${noBtnId}') && (document.getElementById('${noBtnId}').innerText='Nikdo v kurzu', document.getElementById('${noBtnId}').style.background='var(--bg-status)', document.getElementById('${noBtnId}').style.color='var(--text-muted)', document.getElementById('${boxId}').dataset.nobody='false')"> ${escapeHtml(name)}
                     </label>`;
         }).join('');

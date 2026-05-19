@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   'use strict';
 
   let _state = {
@@ -233,13 +233,17 @@
     const scenario = _state.scenariosCache.find(
       s => (s.scenarioId || s.id || s.RowKey) === scenarioId
     );
-    const blacklist = new Set(
-      (scenario?.assigned_to_groups || scenario?.assignedToGroups || '')
-        .split(',').map(x => x.trim()).filter(Boolean)
-    );
-
+    const assignedGroupsStr = (scenario?.assigned_to_groups || scenario?.assignedToGroups || '').trim();
     const allGroups = _state.courseGroupsCache || [];
-    const accessible = allGroups.filter(g => !blacklist.has(g.groupId));
+    let accessible;
+    if (!assignedGroupsStr) {
+        accessible = allGroups;
+    } else if (assignedGroupsStr === 'HIDDEN_FROM_ALL') {
+        accessible = [];
+    } else {
+        const whitelist = new Set(assignedGroupsStr.split(',').map(x => x.trim()).filter(Boolean));
+        accessible = allGroups.filter(g => whitelist.has(g.groupId));
+    }
 
     grpSel.innerHTML = '<option value="">— Všechny skupiny —</option>';
     accessible.forEach(g => {
@@ -260,10 +264,12 @@
     const scenario = _state.scenariosCache.find(
       s => (s.scenarioId || s.id || s.RowKey) === scenarioId
     );
-    const isAiScenario = (scenario?.hints || '').includes('[ADAPTIVE:true]');
+    const isAiScenario = scenario?.difficulty === 'adaptive'
+      || (scenario?.hints || '').includes('[ADAPTIVE:true]');
+    const isAiEducation = (scenario?.hints || '').includes('[TYPE:ai_education]');
 
     let variantNos = [];
-    if (!isAiScenario && scenario?.taskConfigJson) {
+    if (!isAiScenario && !isAiEducation && scenario?.taskConfigJson) {
       try {
         const cfg = JSON.parse(scenario.taskConfigJson);
         if (Array.isArray(cfg.variants) && cfg.variants.length > 1) {
@@ -271,7 +277,7 @@
         }
       } catch (_) {}
     }
-    return { isAiScenario, variantNos };
+    return { isAiScenario, isAiEducation, variantNos };
   }
 
   /**
@@ -342,7 +348,7 @@
     const checkboxHtml = variantNos.map(n =>
       `<label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:5px 0;font-size:14px;color:var(--text-primary);">
         <input type="checkbox" id="_vsel_${n}" value="${n}" checked
-          style="width:16px;height:16px;accent-color:#3b82f6;cursor:pointer;">
+          style="width:16px;height:16px;accent-color:#3e67a8;cursor:pointer;">
         Varianta ${n}
       </label>`
     ).join('');
@@ -358,7 +364,7 @@
               Zrušit
             </button>
             <button id="_variantSelOk"
-              style="padding:8px 18px;border-radius:6px;border:none;background:#3b82f6;color:white;cursor:pointer;font-size:14px;font-weight:bold;">
+              style="padding:8px 18px;border-radius:6px;border:none;background:var(--btn-primary);color:white;cursor:pointer;font-size:14px;font-weight:bold;">
               Zobrazit
             </button>
           </div>
@@ -391,8 +397,9 @@
     _state.days = parseInt(document.getElementById('analyticsDaysSel').value, 10) || 30;
 
     // Detekuj typ zadání a varianty
-    const { isAiScenario, variantNos } = detectScenarioMeta(_state.scenarioId);
-    _state.scenarioType = isAiScenario ? 'ai' : 'classic';
+    const { isAiScenario, isAiEducation, variantNos } = detectScenarioMeta(_state.scenarioId);
+    _state.scenarioType = isAiEducation ? 'ai_education' : isAiScenario ? 'ai' : 'classic';
+    _state.isAiEducation = isAiEducation;
     _state.scenarioVariants = variantNos;
 
     // Pokud má varianty a ještě nebyly vybrány, zobraz dialog a počkej
@@ -410,7 +417,9 @@
     const groupLabel = _state.groupId
       ? (_state.courseGroupsCache.find(g => g.groupId === _state.groupId)?.title || _state.groupId)
       : 'všechny skupiny';
-    showToast(`Načítám data: ${scenarioLabel} | ${groupLabel}`);
+    if (localStorage.getItem('teacherActiveTab') === 'analytics') {
+      showToast(`Načítám data: ${scenarioLabel} | ${groupLabel}`);
+    }
 
     setLoading(true);
     try {
@@ -424,7 +433,7 @@
       const promises = [
         get(`/api/analytics/course/${_state.courseId}/summary?${params}`),
         get(`/api/analytics/course/${_state.courseId}/students?${params}`),
-        get(`/api/analytics/course/${_state.courseId}/at-risk?${params}`),
+        Promise.resolve([]),
         get(`/courses/${_state.courseId}/members`),
       ];
       // Kroky per krok načítáme jen pro klasická zadání
@@ -435,11 +444,23 @@
       const results = await Promise.all(promises);
       const summary = results[0];
       const students = results[1];
-      const atRisk = results[2];
       const allMembers = results[3] || [];
       try {
         window._analyticsLoadedAttempts = await get(`/courses/${_state.courseId}/attempts`);
       } catch(_) { window._analyticsLoadedAttempts = []; }
+
+      // Pro AI vzdělávání načti všechna odevzdání kurzu
+      let _eduSubmissions = [];
+      if (isAiEducation) {
+        try {
+          const _allSubs = await get(`/courses/${_state.courseId}/submissions`);
+          _eduSubmissions = (_allSubs || []).filter(s =>
+            (s.scenarioId === _state.scenarioId || s.scenario_id === _state.scenarioId) &&
+            String(s.contentPayload || s.content_payload || '').trimStart().startsWith('[AI_EDUCATION]')
+          );
+        } catch(e) { }
+      }
+
       // Počet studentů v kurzu (role student nebo bez role = member)
       const totalCourseStudents = allMembers.filter(m => !m.role || m.role === 'student').length;
       let stepsData = (!isAiScenario && results.length > 4) ? results[4] : [];
@@ -459,6 +480,7 @@
 
       _state.summaryData = summary;
       _state.studentsData = students;
+      _state.stepsData = stepsData || [];
 
       // Přepočítej success_rate podle nastavení zadání (PASS_THRESHOLD nebo GRADING)
       const _scenario = _state.scenariosCache.find(s => (s.scenarioId || s.id || s.RowKey) === _state.scenarioId);
@@ -484,6 +506,11 @@
       _state.passThreshold = _passThreshold;
       renderKPIs(summary);
       renderCharts(summary, students, stepsData, isAiScenario, summary.max_score || 100);
+      if (isAiEducation) {
+        _hideStandardChartsForEdu();
+        const _scenario = _state.scenariosCache.find(s => (s.scenarioId || s.id || s.RowKey) === _state.scenarioId);
+        renderAiEducationAnalytics(_eduSubmissions, window._analyticsLoadedAttempts || [], students, _scenario, allMembers);
+      }
 
       const headerEl = document.getElementById('analyticsDataHeader');
       if (headerEl) {
@@ -491,10 +518,11 @@
         headerEl.textContent = `${scenarioLabel} — ${groupLabel} (${daysLabel})`;
         headerEl.style.display = 'block';
       }
-      renderAtRiskTable([]);
       document.getElementById('analyticsAiSummary').innerHTML =
-        '<span style="color:var(--text-muted);">Klikněte na „Generovat AI přehled".</span>';
-      showToast(`Data načtena: ${students.length} studentů, ${summary.total_submissions ?? 0} odevzdání.`);
+        `<span style="color:var(--text-muted);">Klikněte na „Generovat AI přehled"${isAiEducation ? ' pro pedagogický přehled třídy' : ''}.</span>`;
+      if (localStorage.getItem('teacherActiveTab') === 'analytics') {
+        showToast(`Data načtena: ${students.length} studentů, ${summary.total_submissions ?? 0} odevzdání.`);
+      }
     } catch (e) {
       showToast('Chyba při načítání analytiky: ' + e.message, true);
     } finally {
@@ -517,7 +545,49 @@
    * Vyplní KPI karty hodnotami ze souhrnných dat kurzu.
    * @param {object} data - Objekt summary z backendu (avg_score, success_rate, atd.).
    */
+  function _restoreStandardKpis() {
+    const _labels = {
+      kpiAvgScore: 'Průměrné skóre', kpiSuccessRate: 'Úspěšnost',
+      kpiTotalSubs: 'Odevzdání celkem', kpiEvaluated: 'Ohodnoceno',
+      kpiMedianScore: 'Medián skóre', kpiAvgTime: 'Prům. čas splnění',
+    };
+    Object.entries(_labels).forEach(([id, label]) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const card = el.closest('.stat-card');
+      if (card) card.style.display = '';
+      const lbl = card?.querySelector('.stat-card-label');
+      if (lbl) lbl.textContent = label;
+    });
+    const grid = document.getElementById('analyticsChartsGrid');
+    if (grid) grid.style.display = 'grid';
+    const title = document.getElementById('stepsPanelTitle');
+    if (title) title.style.display = '';
+    const stepsSection = document.getElementById('stepsChartSection');
+    if (stepsSection) stepsSection.style.display = '';
+    const wrapper = document.getElementById('stepsPanelWrapper');
+    if (wrapper) {
+      wrapper.style.maxHeight = '500px';
+      wrapper.style.overflow = 'auto';
+      wrapper.style.height = '';
+    }
+    const radarCanvas = document.getElementById('chartRadar');
+    if (radarCanvas) radarCanvas.style.display = '';
+  }
+
+  function _hideStandardChartsForEdu() {
+    const grid = document.getElementById('analyticsChartsGrid');
+    if (grid) grid.style.display = 'none';
+    const title = document.getElementById('stepsPanelTitle');
+    if (title) title.style.display = 'none';
+    ['kpiAvgScore', 'kpiSuccessRate', 'kpiMedianScore', 'kpiAvgTime'].forEach(id => {
+      const card = document.getElementById(id)?.closest('.stat-card');
+      if (card) card.style.display = 'none';
+    });
+  }
+
   function renderKPIs(data) {
+    _restoreStandardKpis();
     setText('kpiAvgScore', data.avg_score != null ? data.avg_score + ' b.' : '—');
     setText('kpiSuccessRate', data.success_rate != null ? data.success_rate + '%' : '—');
     setText('kpiTotalSubs', data.total_submissions ?? '—');
@@ -567,14 +637,31 @@
     renderTimeChart(students);
     renderAttemptsChart(students, _state.totalCourseStudents || 0, _state.allCourseMembers || []);
     renderPieChart(students, maxPts, _state.gStyle, _state.passThreshold);
-    if (isAiScenario) {
-      _showAiWeaknessPanel('<span style="color:var(--text-muted);">Načítám analýzu slabin studentů…</span>');
-      _loadAiWeaknesses(_state.courseId, _state.scenarioId);
+    if (_state.isAiEducation) {
+      _showAiWeaknessPanel('<span style="color:var(--text-muted);">Načítám vzdělávací analytiku…</span>');
+      destroyChart('radar');
+      destroyChart('qtype');
+    } else if (isAiScenario) {
+      _hideAiWeaknessPanel();
+      const radarCanvas = document.getElementById('chartRadar');
+      if (radarCanvas) radarCanvas.style.display = 'none';
       renderQtypeChart(students);
     } else {
       _hideAiWeaknessPanel();
       renderRadarChart(stepsData || []);
       destroyChart('qtype');
+    }
+    const stepsPanelTitle = document.getElementById('stepsPanelTitle');
+    if (stepsPanelTitle) {
+      if (_state.isAiEducation) {
+        stepsPanelTitle.style.display = 'none';
+      } else if (isAiScenario) {
+        stepsPanelTitle.textContent = 'Úspěšnost per typ úkolu';
+        stepsPanelTitle.style.display = '';
+      } else {
+        stepsPanelTitle.textContent = 'Úspěšnost per krok';
+        stepsPanelTitle.style.display = '';
+      }
     }
   }
 
@@ -710,7 +797,6 @@
       if (wrapper && !wrapper.querySelector('.no-time-msg')) {
         const msg = document.createElement('div');
         msg.className = 'no-time-msg';
-        msg.style.cssText = 'display:flex;align-items:center;justify-content:center;height:180px;color:var(--text-muted);font-size:13px;text-align:center;padding:16px;';
         msg.textContent = 'Backend neposílá data o čase — přidej avg_time_minutes do compute_student_performance.';
         wrapper.appendChild(msg);
       }
@@ -769,57 +855,130 @@
     'sort': 'Seřazení', 'image': 'Práce s obrázkem', 'fill': 'Doplňování',
   };
 
+  function _guessTaskType(step) {
+    if (step.task_type) return step.task_type;
+    const text = (step.task_text || step.title || '').toLowerCase();
+    if (/vyberte správnou odpověď|vybírejte z|a\)|b\)|c\)|d\)/.test(text)) return 'A/B/C/D';
+    if (/pravda|nepravda|true|false/.test(text)) return 'tf';
+    if (/doplňte|doplň|___/.test(text)) return 'fill';
+    if (/opravte|oprav|chyba v kódu|syntaktickou chybu/.test(text)) return 'code';
+    if (/seřaďte|seřaď/.test(text)) return 'sort';
+    return 'open';
+  }
+
   function renderQtypeChart(students) {
     destroyChart('qtype');
     const ctx = document.getElementById('chartQtype');
     if (!ctx) return;
 
-    // Agreguj body per typ otázky ze step_details všech studentů
-    const qtypeData = {}; // qtype -> {earned, max, count}
-    (window._analyticsLoadedAttempts || []).forEach(a => {
+    // Agreguj per krok ze POSLEDNÍHO pokusu každého studenta
+    const stepMap = {}; // stepNum -> { task_type, full, partial, zero, total }
+    const sid = _state.scenarioId || '';
+    const filtered = (window._analyticsLoadedAttempts || []).filter(a => {
+      const aSid = a.scenarioId || a.scenario_id || '';
+      return aSid === sid || aSid.replace(/-ai$/, '-cs') === sid || aSid.replace(/-cs$/, '-ai') === sid;
+    });
+
+    // Pro každého studenta vyber pouze poslední pokus (podle createdAt)
+    const lastAttemptPerUser = {};
+    filtered.forEach(a => {
+      const uid = a.userId || a.user_id || '';
+      if (!uid) return;
+      const prev = lastAttemptPerUser[uid];
+      if (!prev || (a.createdAt || '') > (prev.createdAt || '')) {
+        lastAttemptPerUser[uid] = a;
+      }
+    });
+
+    let studentsWithSteps = 0;
+    Object.values(lastAttemptPerUser).forEach(a => {
       let sd = [];
       try { sd = JSON.parse(a.stepDetails || '[]'); } catch(_) {}
-      if (!Array.isArray(sd)) return;
+      if (!Array.isArray(sd) || sd.length === 0) return;
+      studentsWithSteps++;
       sd.forEach(s => {
-        const qt = s.task_type || s.qtype || 'open';
-        if (!qtypeData[qt]) qtypeData[qt] = { earned: 0, max: 0, count: 0 };
-        qtypeData[qt].earned += Number(s.points_earned ?? 0);
-        qtypeData[qt].max += Number(s.points_max ?? s.max_points ?? 0);
-        qtypeData[qt].count++;
+        const stepNum = Number(s.step) || Number((s.step_id || '').replace(/\D/g, '')) || 0;
+        if (!stepNum) return;
+        const earned = Number(s.points_earned ?? 0);
+        const maxPts = Number(s.points_max ?? s.max_points ?? 0);
+        if (!stepMap[stepNum]) {
+          stepMap[stepNum] = { task_type: s.task_type || '—', full: 0, partial: 0, zero: 0, skipped: 0, total: 0 };
+        }
+        stepMap[stepNum].total++;
+        if (maxPts > 0 && earned >= maxPts) stepMap[stepNum].full++;
+        else if (earned > 0) stepMap[stepNum].partial++;
+        else stepMap[stepNum].zero++;
       });
     });
 
-    if (Object.keys(qtypeData).length === 0) {
+    // Studenti co měli stepDetails ale konkrétní krok vynechali → šedá
+    Object.values(stepMap).forEach(d => {
+      d.skipped = Math.max(0, studentsWithSteps - d.total);
+    });
+
+    if (Object.keys(stepMap).length === 0) {
       ctx.style.display = 'none';
       return;
     }
     ctx.style.display = '';
 
-    const labels = Object.keys(qtypeData).map(qt => QTYPE_LABELS[qt] || qt);
-    const successRates = Object.values(qtypeData).map(d => d.max > 0 ? Math.round(d.earned / d.max * 100) : 0);
-    const colors = successRates.map(r => r >= 70 ? '#10b981' : r >= 40 ? '#f59e0b' : '#ef4444');
+    const sorted = Object.entries(stepMap).sort((a, b) => Number(a[0]) - Number(b[0]));
+    const labels = sorted.map(([num, d]) => `${num}. ${d.task_type}`);
+    const full    = sorted.map(([, d]) => d.full);
+    const partial = sorted.map(([, d]) => d.partial);
+    const zero    = sorted.map(([, d]) => d.zero);
+    const skipped = sorted.map(([, d]) => d.skipped || 0);
+    const totalAttempts = studentsWithSteps || Math.max(0, ...sorted.map(([, d]) => d.total));
+
+    const _qtypeH = Math.max(220, sorted.length * 60) + 'px';
+    ctx.style.height = _qtypeH;
+    const wrapper = document.getElementById('stepsPanelWrapper');
+    if (wrapper) {
+      wrapper.style.maxHeight = 'none';
+      wrapper.style.overflow = 'hidden';
+      wrapper.style.height = _qtypeH;
+    }
 
     _state.charts.qtype = new Chart(ctx, {
       type: 'bar',
-      indexAxis: 'y',
       data: {
         labels,
-        datasets: [{
-          label: 'Úspěšnost (%)',
-          data: successRates,
-          backgroundColor: colors,
-          borderRadius: 4,
-        }]
+        datasets: [
+          { label: 'Max body',      data: full,    backgroundColor: '#10b981', borderRadius: 4, barPercentage: 0.8, categoryPercentage: 0.9 },
+          { label: 'Částečné body', data: partial,  backgroundColor: '#eab308', borderRadius: 4, barPercentage: 0.8, categoryPercentage: 0.9 },
+          { label: '0 bodů',        data: zero,     backgroundColor: '#ef4444', borderRadius: 4, barPercentage: 0.8, categoryPercentage: 0.9 },
+          { label: 'Bez odpovědi',  data: skipped,  backgroundColor: '#6b7280', borderRadius: 4, barPercentage: 0.8, categoryPercentage: 0.9 },
+        ]
       },
       options: {
-        responsive: true, maintainAspectRatio: false,
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
         plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: item => `${item.raw} % úspěšnost (${Object.values(qtypeData)[item.dataIndex].count} odpovědí)` } }
+          legend: { display: true, labels: { color: '#ffffff' } },
+          tooltip: {
+            callbacks: {
+              label: (item) => {
+                const n = item.raw;
+                const total = sorted[item.dataIndex][1].total;
+                const pct = total > 0 ? Math.round((n / total) * 100) : 0;
+                return ` ${item.dataset.label}: ${n} student${n === 1 ? '' : n >= 5 ? 'ů' : 'i'} (${pct} %)`;
+              }
+            }
+          }
         },
         scales: {
-          x: { beginAtZero: true, max: 100, ticks: { color: '#fff', callback: v => `${v} %` }, title: { display: true, text: 'Úspěšnost (%)', color: '#fff' } },
-          y: { ticks: { color: '#fff' } }
+          x: {
+            beginAtZero: true,
+            stacked: true,
+            max: totalAttempts > 0 ? totalAttempts : undefined,
+            ticks: { color: '#ffffff', stepSize: 1, precision: 0 },
+            title: { display: true, text: 'Počet studentů', color: '#ffffff' },
+          },
+          y: {
+            stacked: true,
+            ticks: { color: '#ffffff', font: { size: 11 } },
+          },
         }
       }
     });
@@ -863,7 +1022,7 @@
         datasets: [{
           label: 'Počet studentů',
           data,
-          backgroundColor: '#3b82f6',
+          backgroundColor: '#3e67a8',
           borderRadius: 4,
         }]
       },
@@ -961,11 +1120,11 @@
       return isNaN(num) ? shortLbl : `Krok ${num}: ${shortLbl}`;
     });
 
-    // Každý pruh musí mít délku rovnou celkovému počtu pokusů.
-    // Zelená = plný počet bodů, žlutá = částečné body, červená = 0 bodů nebo chybějící krok.
+    // Zelená = plný počet bodů, žlutá = částečné, červená = 0 bodů, šedá = bez odpovědi
     const full    = sorted.map(g => g.full_score_students ?? g.successful_students ?? 0);
     const partial = sorted.map(g => g.partial_students ?? 0);
     const zero    = sorted.map(g => g.zero_students ?? 0);
+    const skipped = sorted.map(g => g.skipped_students ?? 0);
     const totalAttempts = Math.max(
       0,
       ...sorted.map(g => Number(g.total_attempts ?? g.total_students ?? 0))
@@ -976,27 +1135,10 @@
       data: {
         labels,
         datasets: [
-          {
-            label: 'Max body',
-            data: full,
-            backgroundColor: '#10b981',
-            borderRadius: 4,
-            barThickness: 20,
-          },
-          {
-            label: 'Částečné body',
-            data: partial,
-            backgroundColor: '#eab308',
-            borderRadius: 4,
-            barThickness: 20,
-          },
-          {
-            label: '0 bodů',
-            data: zero,
-            backgroundColor: '#ef4444',
-            borderRadius: 4,
-            barThickness: 20,
-          },
+          { label: 'Max body',      data: full,    backgroundColor: '#10b981', borderRadius: 4, barThickness: 20 },
+          { label: 'Částečné body', data: partial,  backgroundColor: '#eab308', borderRadius: 4, barThickness: 20 },
+          { label: '0 bodů',        data: zero,     backgroundColor: '#ef4444', borderRadius: 4, barThickness: 20 },
+          { label: 'Bez odpovědi',  data: skipped,  backgroundColor: '#6b7280', borderRadius: 4, barThickness: 20 },
         ]
       },
       options: {
@@ -1023,7 +1165,7 @@
             stacked: true,
             max: totalAttempts > 0 ? totalAttempts : undefined,
             ticks: { color: '#ffffff', stepSize: 1, precision: 0 },
-            title: { display: true, text: 'Počet pokusů', color: '#ffffff' },
+            title: { display: true, text: 'Počet studentů', color: '#ffffff' },
           },
           y: {
             stacked: true,
@@ -1189,40 +1331,13 @@
     });
     ctx.style.cursor = 'pointer';
   }
-
-  /**
-   * Vykreslí tabulku rizikových studentů (#atRiskTableBody).
-   * @param {Array<object>} atRisk - Pole rizikových studentů z backendu.
-   */
-  function renderAtRiskTable(atRisk) {
-    const tbody = document.getElementById('atRiskTableBody');
-    if (!tbody) return;
-    if (!atRisk.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Žádní rizikoví studenti.</td></tr>';
-      return;
-    }
-    tbody.innerHTML = atRisk.map(s => {
-      const riskBadge = s.risk_level === 'high'
-        ? '<span style="background:#ef4444;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;">VYSOKÉ</span>'
-        : '<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;">STŘEDNÍ</span>';
-      const trendColor = s.trend === '↑' ? '#10b981' : (s.trend === '↓' ? '#ef4444' : '#9ca3af');
-      return `<tr>
-        <td>${escHtml(s.displayName || s.userId)}</td>
-        <td>${s.avg_score != null ? s.avg_score + ' b.' : '—'}</td>
-        <td>${s.attempts}</td>
-        <td style="color:${trendColor};font-weight:bold;">${s.trend}</td>
-        <td>${s.last_activity ? s.last_activity.slice(0, 10) : '—'}</td>
-        <td>${riskBadge}</td>
-      </tr>`;
-    }).join('');
-  }
-
   /**
    * Zavolá backend endpoint /api/analytics/ai-summary a zobrazí vygenerovaný
    * AI přehled (markdown → HTML) v boxu #analyticsAiSummary.
    */
   async function generateAiSummary() {
     if (!_state.courseId) { showToast('Nejprve načtěte data.', true); return; }
+    if (_state.isAiEducation) { return _generateEduAiSummary(); }
     const box = document.getElementById('analyticsAiSummary');
     const btn = document.getElementById('analyticsAiBtn');
     if (box) box.innerHTML = '<span style="color:var(--text-muted);">Generuji přehled...</span>';
@@ -1244,29 +1359,278 @@
     }
   }
 
+  async function _generateEduAiSummary() {
+    const box = document.getElementById('analyticsAiSummary');
+    const btn = document.getElementById('analyticsAiBtn');
+    if (box) box.innerHTML = '<span style="color:var(--text-muted);">Generuji pedagogický přehled…</span>';
+    if (btn) btn.disabled = true;
+    showToast('Generuji AI pedagogický přehled…');
+    try {
+      const topicStats = _state._eduTopicStats || [];
+      const studentData = _state._eduStudentData || [];
+      const threshold = _state._eduThreshold || 75;
+      const numTopics = topicStats.length;
+      const badTopics = topicStats.filter(t => t.avgPct < threshold);
+      const badTopicsStr = badTopics.length
+        ? badTopics.map(t => `${t.name} (${t.avgPct}%, zvládlo ${t.masteredCount}/${t.totalStudents} studentů)`).join('; ')
+        : 'Žádná témata pod prahem.';
+      const atRiskStr = studentData
+        .filter(s => s.masteredTopics < numTopics * 0.7 || s.skipped > 0 || s.totalRepeats > 2)
+        .slice(0, 6)
+        .map(s => `${s.name} — přeskočeno: ${s.skipped}, opakování: ${s.totalRepeats}, pod prahem: ${s.belowThresholdTopics.slice(0, 3).join(', ') || '—'}`)
+        .join('\n') || 'Žádní studenti nevyžadují zvláštní pozornost.';
+      const context = `Vzdělávací modul: ${_state._eduScenarioTitle || 'Vzdělávací modul'}
+Počet studentů: ${_state._eduNumStudents || 0}, Průměrné skóre: ${_state._eduAvgPct || 0}%
+Práh zvládnutí: ${threshold}%
+
+Nejproblematičtější témata (pod prahem):
+${badTopicsStr}
+
+Rizikoví studenti:
+${atRiskStr}
+
+Napiš pedagogický přehled třídy v tomto formátu:
+## Celkové hodnocení
+[1-2 věty o celkovém výkonu třídy]
+
+## Problematická témata
+[bullet list témat pod prahem s konkrétním doporučením pro každé]
+
+## Studenti vyžadující podporu
+[bullet list rizikových studentů s konkrétním doporučením na co se zaměřit]
+
+## Doporučení pro učitele
+[3-4 konkrétní kroky jak upravit výuku]
+
+Piš česky, stručně a konkrétně. Nevypisuj zpětnou vazbu pro studenty — pouze pro učitele.
+
+STOP: Pokud jsi vygeneroval jakýkoliv text začínající "Bohužel", "Dosáhli jste", "Vaše skóre" nebo podobně — SMAŽ ho. Výstup nesmí obsahovat ŽÁDNOU zpětnou vazbu pro studenta. Pouze přehled pro učitele ve výše uvedeném formátu. Nic jiného.`;
+      const res = await post('/api/ai/synthesize-feedback', { feedbacks: context });
+      if (box) box.innerHTML = _renderEduAiHtml(res.feedback || '');
+      showToast('Pedagogický přehled vygenerován.');
+    } catch(e) {
+      showToast('Chyba AI přehledu: ' + e.message, true);
+      if (box) box.innerHTML = '';
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  function _renderEduAiHtml(markdown) {
+    const studentPrefixes = [
+      'bohužel', 'dosáhli', 'dosáhl', 'vaše skóre', 'doporučuji, abyste',
+      'výborně', 'váš výkon', 'váš výsledek', 'doporučuji se', 'gratuluji',
+      'celkově jste', 'získal', 'získali',
+    ];
+    const rawLines = markdown.split('\n');
+    const cutIdx = rawLines.findIndex(l => l.trim() === '---');
+    const beforeCut = cutIdx !== -1 ? rawLines.slice(0, cutIdx) : rawLines;
+    const filtered = beforeCut.filter(line => {
+      const t = line.trim().toLowerCase();
+      return !studentPrefixes.some(p => t.startsWith(p));
+    }).join('\n');
+    const lines = filtered.split('\n');
+    let html = '';
+    let inSection = false;
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (trimmed.startsWith('## ')) {
+        if (inSection) html += '</div>';
+        const heading = escHtml(trimmed.slice(3));
+        html += `<div style="background:var(--bg-status);border:1px solid var(--border-color);border-radius:8px;padding:12px 16px;margin-bottom:10px;">`;
+        html += `<div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">${heading}</div>`;
+        inSection = true;
+      } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+        const text = escHtml(trimmed.slice(2));
+        html += `<div style="display:flex;gap:6px;margin-bottom:4px;font-size:13px;color:var(--text-primary);line-height:1.5;"><span style="color:var(--accent-color);flex-shrink:0;">›</span><span>${text}</span></div>`;
+      } else {
+        html += `<p style="font-size:13px;color:var(--text-primary);line-height:1.6;margin:4px 0;">${escHtml(trimmed)}</p>`;
+      }
+    }
+    if (inSection) html += '</div>';
+    return html;
+  }
+
   /**
    * Stáhne analytická data kurzu jako CSV soubor přes GET /export-csv endpoint.
    */
-  function exportCSV() {
+  function exportExcel() {
     if (!_state.courseId) { showToast('Nejprve načtěte data.', true); return; }
-    const params = new URLSearchParams({ days: _state.days });
-    if (_state.scenarioId) params.set('scenario_id', _state.scenarioId);
-    const url = `${API_BASE}/api/analytics/course/${_state.courseId}/export-csv?${params}`;
-    showToast('Připravuji CSV export…');
-    fetch(url, { headers: getHeaders() })
-      .then(r => { if (!r.ok) throw new Error(r.statusText); return r.blob(); })
-      .then(blob => {
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `analytika_${_state.courseId}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(a.href);
-        showToast('CSV exportováno.');
-      })
-      .catch(e => showToast('Export selhal: ' + e.message, true));
+    if (typeof XLSX === 'undefined') { showToast('Knihovna XLSX se nenačetla.', true); return; }
+
+    const wb = XLSX.utils.book_new();
+
+    if (_state.isAiEducation) {
+      const eduTopics  = _state._eduTopicStats  || [];
+      const eduStudents = _state._eduStudentData || [];
+      const threshold  = _state._eduThreshold   || 75;
+
+      // Souhrn
+      const wsSouhrn = XLSX.utils.aoa_to_sheet([
+        ['Modul', 'Počet studentů', 'Průměrné skóre (%)', 'Práh zvládnutí (%)', 'Počet témat'],
+        [_state._eduScenarioTitle || '', eduStudents.length, _state._eduAvgPct || 0, threshold, eduTopics.length],
+      ]);
+      wsSouhrn['!cols'] = [35, 16, 20, 20, 14].map(w => ({ wch: w }));
+      XLSX.utils.book_append_sheet(wb, wsSouhrn, 'Souhrn');
+
+      // Témata
+      const topicRows = [['Téma', 'Průměrné skóre (%)', 'Zvládnuto studentů', 'Celkem studentů', 'Pod prahem']];
+      [...eduTopics].sort((a, b) => a.avgPct - b.avgPct).forEach(t => {
+        topicRows.push([t.name, t.avgPct, t.masteredCount, t.totalStudents, t.avgPct < threshold ? 'ANO' : 'NE']);
+      });
+      const wsTopics = XLSX.utils.aoa_to_sheet(topicRows);
+      wsTopics['!cols'] = [35, 20, 20, 16, 12].map(w => ({ wch: w }));
+      XLSX.utils.book_append_sheet(wb, wsTopics, 'Témata');
+
+      // Studenti
+      const stuRows = [['Student', 'Skóre (%)', 'Zvládnuto témat', 'Přeskočeno', 'Opakování', 'Témata pod prahem']];
+      [...eduStudents].sort((a, b) => a.masteredTopics - b.masteredTopics || b.skipped - a.skipped).forEach(s => {
+        stuRows.push([s.name, s.pct, `${s.masteredTopics} / ${s.numTopics}`, s.skipped, s.totalRepeats, s.belowThresholdTopics.join(', ') || '—']);
+      });
+      const wsStu = XLSX.utils.aoa_to_sheet(stuRows);
+      wsStu['!cols'] = [30, 12, 16, 12, 12, 45].map(w => ({ wch: w }));
+      XLSX.utils.book_append_sheet(wb, wsStu, 'Studenti');
+
+      // AI přehled (pokud vygenerován)
+      const aiText = document.getElementById('analyticsAiSummary')?.innerText?.trim();
+      if (aiText && !aiText.includes('Klikněte na') && aiText.length > 20) {
+        const aiRows = [['AI Pedagogický přehled'], []];
+        aiText.split('\n').forEach(line => { const t = line.trim(); aiRows.push(t ? [t] : []); });
+        const wsAi = XLSX.utils.aoa_to_sheet(aiRows);
+        wsAi['!cols'] = [{ wch: 100 }];
+        XLSX.utils.book_append_sheet(wb, wsAi, 'AI přehled');
+      }
+
+      const filename = `analytika_edu_${_state.scenarioId || _state.courseId}.xlsx`;
+      XLSX.writeFile(wb, filename);
+      showToast('Excel exportován.');
+      return;
+    }
+
+    const s = _state.summaryData || {};
+
+    // ── List 1: Souhrn ────────────────────────────────────────────────────────
+    const summaryData = [
+      ['Průměrné skóre', 'Medián skóre', 'Úspěšnost (%)', 'Odevzdání celkem', 'Ohodnoceno', 'Prům. čas (min)'],
+      [s.avg_score ?? '', s.median_score ?? '', s.success_rate ?? '', s.total_submissions ?? '', s.evaluated_count ?? '', s.avg_time_minutes ?? ''],
+    ];
+    const wsSouhrn = XLSX.utils.aoa_to_sheet(summaryData);
+    wsSouhrn['!cols'] = [130, 130, 130, 130, 130, 130].map(w => ({ wch: w / 7 }));
+    XLSX.utils.book_append_sheet(wb, wsSouhrn, 'Souhrn');
+
+    // ── List 2: Studenti ──────────────────────────────────────────────────────
+    const studentRows = [['Student', 'Průměrné skóre', 'Poslední skóre', 'Počet pokusů', 'Trend', 'Poslední aktivita', 'Čas splnění (min)']];
+    (_state.studentsData || []).forEach(st => {
+      studentRows.push([st.displayName || st.userId, st.avg_score ?? '', st.last_score ?? '', st.attempts ?? '', st.trend ?? '', st.last_activity ? st.last_activity.slice(0, 10) : '', st.last_duration_minutes ?? '']);
+    });
+    const wsStudenti = XLSX.utils.aoa_to_sheet(studentRows);
+    wsStudenti['!cols'] = [25, 15, 15, 12, 8, 15, 15].map(w => ({ wch: w }));
+    XLSX.utils.book_append_sheet(wb, wsStudenti, 'Studenti');
+
+    // ── List 2b: Rozložení skóre ──────────────────────────────────────────────
+    const _totalMax = _state.gMax || getScenarioMaxPts() || (_state.stepsData || []).reduce((sum, st) => sum + (st.avg_max || 0), 0) || (_state.summaryData?.max_score) || 0;
+    const _gradeLabel = pct => {
+      if (pct >= 90) return 'A';
+      if (pct >= 75) return 'B';
+      if (pct >= 60) return 'C';
+      if (pct >= 50) return 'D';
+      if (pct >= 30) return 'E';
+      return 'F';
+    };
+    const scoreRows = [['max_points:', _totalMax], [], ['Student', 'Body', 'Úspěšnost (%)', 'Známka']];
+    (_state.studentsData || []).forEach(st => {
+      const score = st.last_score ?? null;
+      const pct = (score !== null && _totalMax > 0) ? Math.round((score / _totalMax) * 100) : null;
+      const grade = pct !== null ? _gradeLabel(pct) : '';
+      scoreRows.push([st.displayName || st.userId, score ?? '', pct !== null ? pct : '', grade]);
+    });
+    const wsScore = XLSX.utils.aoa_to_sheet(scoreRows);
+    wsScore['!cols'] = [{ wch: 25 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, wsScore, 'Rozložení skóre');
+
+    // ── List 3: Úspěšnost per krok ────────────────────────────────────────────
+    if ((_state.stepsData || []).length > 0) {
+      const stepRows = [['Krok', 'Název', 'Plný počet studentů', 'Částečné', '0 bodů', 'Celkem studentů', 'Úspěšnost (%)']];
+      _state.stepsData.forEach(st => {
+        stepRows.push([st.step_id ?? '', st.label ?? '', st.full_score_students ?? '', st.partial_students ?? '', st.zero_students ?? '', st.total_students ?? '', st.success_rate != null ? Math.round(st.success_rate) : '']);
+      });
+      const wsKroky = XLSX.utils.aoa_to_sheet(stepRows);
+      wsKroky['!cols'] = [8, 40, 20, 12, 10, 15, 14].map(w => ({ wch: w }));
+      XLSX.utils.book_append_sheet(wb, wsKroky, 'Kroky');
+    }
+
+    // ── List 4: AI přehled ────────────────────────────────────────────────────
+    const aiEl = document.getElementById('analyticsAiSummary');
+    const aiText = aiEl?.innerText?.trim();
+    if (aiText && !aiText.includes('Klikněte na') && aiText.length > 20) {
+      const aiRows = [['AI Přehled třídy'], []];
+      aiText.split('\n').forEach(line => {
+        const t = line.trim();
+        if (!t) { aiRows.push([]); return; }
+        aiRows.push([t]);
+      });
+      const wsAi = XLSX.utils.aoa_to_sheet(aiRows);
+      wsAi['!cols'] = [{ wch: 100 }];
+      XLSX.utils.book_append_sheet(wb, wsAi, 'AI přehled');
+    }
+    // ── List 5: Slabiny AI cvičení ────────────────────────────────────────────
+    const aiWeakText = document.getElementById('analyticsAiWeakness')?.innerText?.trim();
+    if (aiWeakText && aiWeakText.length > 10 && !aiWeakText.includes('Klikněte')) {
+      const weakRows = aiWeakText.split('\n').filter(l => l.trim()).map(l => [l]);
+      const wsWeak = XLSX.utils.aoa_to_sheet(weakRows);
+      wsWeak['!cols'] = [{ wch: 80 }];
+      XLSX.utils.book_append_sheet(wb, wsWeak, 'Slabiny AI');
+    }
+
+    // ── Stažení ───────────────────────────────────────────────────────────────
+    const filename = `analytika_${_state.courseId}${_state.scenarioId ? '_' + _state.scenarioId : ''}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    showToast('Excel exportován.');
   }
+    const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const rows = [];
+
+    // ── SEKCE 1: Souhrn ──────────────────────────────────────────────────────
+    const s = _state.summaryData || {};
+    rows.push(['SOUHRN KURZU']);
+    rows.push(['Průměrné skóre', 'Medián skóre', 'Úspěšnost (%)', 'Odevzdání celkem', 'Ohodnoceno', 'Prům. čas (min)']);
+    rows.push([s.avg_score ?? '', s.median_score ?? '', s.success_rate ?? '', s.total_submissions ?? '', s.evaluated_count ?? '', s.avg_time_minutes ?? '']);
+    rows.push([]);
+
+    // ── SEKCE 2: Studenti ─────────────────────────────────────────────────────
+    rows.push(['STUDENTI']);
+    rows.push(['Student', 'Průměrné skóre', 'Poslední skóre', 'Počet pokusů', 'Trend', 'Poslední aktivita', 'Čas splnění (min)']);
+    (_state.studentsData || []).forEach(st => {
+      rows.push([st.displayName || st.userId, st.avg_score ?? '', st.last_score ?? '', st.attempts ?? '', st.trend ?? '', st.last_activity ? st.last_activity.slice(0, 10) : '', st.last_duration_minutes ?? '']);
+    });
+    rows.push([]);
+
+    // ── SEKCE 3: Úspěšnost per krok ──────────────────────────────────────────
+    if ((_state.stepsData || []).length > 0) {
+      rows.push(['ÚSPĚŠNOST PER KROK']);
+      rows.push(['Krok', 'Název', 'Plný počet studentů', 'Částečné', '0 bodů', 'Celkem studentů', 'Úspěšnost (%)']);
+      _state.stepsData.forEach(st => {
+        rows.push([st.step_id ?? '', st.label ?? '', st.full_score_students ?? '', st.partial_students ?? '', st.zero_students ?? '', st.total_students ?? '', st.success_rate != null ? Math.round(st.success_rate) : '']);
+      });
+      rows.push([]);
+    }
+
+    // ── SEKCE 4: AI přehled ───────────────────────────────────────────────────
+    const aiText = document.getElementById('analyticsAiSummary')?.innerText?.trim();
+    if (aiText && !aiText.includes('Klikněte na')) {
+      rows.push(['AI PŘEHLED TŘÍDY']);
+      aiText.split('\n').forEach(line => { if (line.trim()) rows.push([line]); });
+      rows.push([]);
+    }
+
+    // ── SEKCE 5: Slabiny AI cvičení ───────────────────────────────────────────
+    const aiWeakEl = document.getElementById('analyticsAiWeakness');
+    const aiWeakText = aiWeakEl?.innerText?.trim();
+    if (aiWeakText && aiWeakText.length > 10 && !aiWeakText.includes('Klikněte')) {
+      rows.push(['SLABINY AI CVIČENÍ']);
+      aiWeakText.split('\n').forEach(line => { if (line.trim()) rows.push([line]); });
+    }
 
   /**
    * Převede jednoduchý markdown (## nadpisy, - odrážky, **tučné**) na HTML string.
@@ -1291,10 +1655,332 @@
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
+  // ── AI VZDĚLÁVÁNÍ ANALYTIKA ────────────────────────────────────────────────
+
+  function _parseThreshold(hints) {
+    const m = (hints || '').match(/\[THRESHOLD:(\d+)\]/);
+    return m ? parseInt(m[1], 10) : 75;
+  }
+
+  function _parseEduPayload(contentPayload) {
+    const raw = String(contentPayload || '');
+    const topics = {};
+    const rx = /Téma \d+:\s+(.+?)\s+—\s+(?:ZVLÁDNUTO|PŘESKOČENO|NEDOKONČENO)[^T]*?Skóre:\s+(\d+)%/g;
+    let m;
+    while ((m = rx.exec(raw)) !== null) topics[m[1].trim()] = parseInt(m[2], 10);
+
+    const skippedRx = /Téma \d+:\s+(.+?)\s+— PŘESKOČENO/g;
+    const skipped = [];
+    let sm;
+    while ((sm = skippedRx.exec(raw)) !== null) skipped.push(sm[1].trim());
+
+    const repeatRx = /Téma \d+:\s+(.+?)\s+— (?:ZVLÁDNUTO|PŘESKOČENO|NEDOKONČENO)[^\n]*?\((\d+) opakování\)/g;
+    const repeats = {};
+    let rm;
+    while ((rm = repeatRx.exec(raw)) !== null) repeats[rm[1].trim()] = parseInt(rm[2], 10);
+
+    const totalM = raw.match(/Celkové skóre: (\d+) \/ (\d+) b/);
+    return {
+      topics,
+      skipped,
+      repeats,
+      totalEarned: totalM ? parseInt(totalM[1], 10) : null,
+      totalMax:    totalM ? parseInt(totalM[2], 10) : null,
+    };
+  }
+
+  function _setKpiEdu(id, label, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const card = el.closest('.stat-card');
+    if (card) card.style.display = '';
+    const lbl = card?.querySelector('.stat-card-label');
+    if (lbl) lbl.textContent = label;
+    el.textContent = value;
+  }
+
+  function renderAiEducationAnalytics(subs, allAttempts, students, scenario, members) {
+    const hints = scenario?.hints || '';
+    const threshold = _parseThreshold(hints);
+    const scenarioId = _state.scenarioId;
+
+    // Group filter set
+    let groupSet = null;
+    if (_state.groupId) {
+      groupSet = new Set(
+        (members || [])
+          .filter(m => m.groupId === _state.groupId || m.group_id === _state.groupId)
+          .map(m => m.userId || m.user_id || m.RowKey || '')
+          .filter(Boolean)
+      );
+    }
+
+    // Edu attempts per student (count all archived/submitted/evaluated attempts for this scenario)
+    const attemptsPerStudent = {};
+    (allAttempts || []).forEach(a => {
+      if ((a.scenarioId !== scenarioId) && (a.scenario_id !== scenarioId)) return;
+      const uid = a.userId || a.user_id || '';
+      if (!uid || (groupSet && !groupSet.has(uid))) return;
+      attemptsPerStudent[uid] = (attemptsPerStudent[uid] || 0) + 1;
+    });
+
+    // Latest submission per student (by submittedAt)
+    const latestSub = {};
+    (subs || []).forEach(s => {
+      const uid = s.userId || s.user_id || '';
+      if (!uid || (groupSet && !groupSet.has(uid))) return;
+      const dateA = new Date(s.submittedAt || s.submitted_at || 0).getTime();
+      const dateB = new Date(latestSub[uid]?.submittedAt || latestSub[uid]?.submitted_at || 0).getTime();
+      if (!latestSub[uid] || dateA > dateB) {
+        latestSub[uid] = s;
+      }
+    });
+
+    // Collect all topic names
+    const allTopicNamesSet = new Set();
+    Object.values(latestSub).forEach(sub => {
+      const { topics } = _parseEduPayload(sub.contentPayload || sub.content_payload || '');
+      Object.keys(topics).forEach(t => allTopicNamesSet.add(t));
+    });
+    const topicNames = Array.from(allTopicNamesSet);
+    const numTopics = topicNames.length || 1;
+
+    // Per-student computed data
+    const studentData = Object.entries(latestSub).map(([uid, sub]) => {
+      const name = sub.displayName || sub.display_name || sub.userId || uid;
+      const parsed = _parseEduPayload(sub.contentPayload || sub.content_payload || '');
+      const { topics, totalEarned, totalMax } = parsed;
+      const masteredTopics = Object.values(topics).filter(pct => pct >= threshold).length;
+      const skipped = parsed.skipped.length;
+      const totalRepeats = Object.values(parsed.repeats).reduce((s, x) => s + x, 0);
+      const attempts = attemptsPerStudent[uid] || 1;
+      const belowThresholdTopics = Object.entries(topics)
+        .filter(([, pct]) => pct < threshold)
+        .sort(([, a], [, b]) => a - b)
+        .map(([n]) => n);
+      const pct = totalMax > 0 ? Math.round((totalEarned / totalMax) * 100) : 0;
+      return { uid, name, topics, masteredTopics, skipped, attempts, totalRepeats, belowThresholdTopics, pct, numTopics };
+    });
+
+    // Per-topic aggregated stats, worst first
+    const topicStats = topicNames.map(name => {
+      let pctSum = 0, pctCount = 0, masteredCount = 0;
+      studentData.forEach(s => {
+        if (s.topics[name] !== undefined) {
+          pctSum += s.topics[name]; pctCount++;
+          if (s.topics[name] >= threshold) masteredCount++;
+        }
+      });
+      const avgPct = pctCount > 0 ? Math.round(pctSum / pctCount) : 0;
+      return { name, avgPct, masteredCount, totalStudents: pctCount };
+    }).sort((a, b) => a.avgPct - b.avgPct);
+
+    // Aggregate stats
+    const numStudents = studentData.length;
+    const avgPct = numStudents > 0 ? Math.round(studentData.reduce((s, x) => s + x.pct, 0) / numStudents) : 0;
+    const avgMastered = numStudents > 0
+      ? Math.round(studentData.reduce((s, x) => s + x.masteredTopics, 0) / numStudents * 10) / 10 : 0;
+    const allRepeatVals = studentData.map(s => s.totalRepeats);
+    const avgAttempts = allRepeatVals.length > 0
+      ? Math.round(allRepeatVals.reduce((s, x) => s + x, 0) / allRepeatVals.length * 10) / 10 : 0;
+
+    // Override KPI cards
+    _setKpiEdu('kpiAvgScore',    'Zvládnuto průměrně', `${avgMastered} / ${numTopics}`);
+    _setKpiEdu('kpiSuccessRate', 'Průměrné skóre',     `${avgPct} %`);
+    _setKpiEdu('kpiTotalSubs',   'Odevzdáno celkem',   numStudents);
+    _setKpiEdu('kpiEvaluated',   'Prům. opakování',    avgAttempts);
+    const _hideCard = id => { const c = document.getElementById(id)?.closest('.stat-card'); if (c) c.style.display = 'none'; };
+    _hideCard('kpiMedianScore'); _hideCard('kpiAvgTime');
+
+    // Topic table rows (already sorted worst→best)
+    const topicTableRows = topicStats.map(t => {
+      const col = t.avgPct >= 75 ? '#10b981' : t.avgPct >= 50 ? '#f59e0b' : '#ef4444';
+      return `<tr style="${t.avgPct < threshold ? 'background:rgba(239,68,68,0.06);' : ''}">
+        <td style="padding:8px 12px;font-size:13px;color:var(--text-primary);border-bottom:1px solid var(--border-color);">${escHtml(t.name)}</td>
+        <td style="padding:8px 12px;font-size:13px;font-weight:bold;color:${col};border-bottom:1px solid var(--border-color);text-align:right;">${t.avgPct} %</td>
+        <td style="padding:8px 12px;font-size:13px;color:var(--text-muted);border-bottom:1px solid var(--border-color);text-align:right;">${t.masteredCount} / ${t.totalStudents}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="3" style="padding:12px;color:var(--text-muted);text-align:center;">Žádná data — studenti zatím neodevzdali.</td></tr>';
+
+    // All students sorted by worst performance first
+    const atRiskRows = [...studentData]
+      .sort((a, b) => a.masteredTopics - b.masteredTopics || b.skipped - a.skipped || b.totalRepeats - a.totalRepeats)
+      .map(s => {
+        const doporuceni = s.belowThresholdTopics.length > 0 || s.skipped > 0
+          ? `Zaměřit se na: ${s.belowThresholdTopics.slice(0, 4).join(', ') || '—'}`
+          : '✓ Bez problémů';
+        const isRisk = s.masteredTopics < numTopics * 0.6 || s.skipped > 0 || s.totalRepeats > Math.max(2, avgAttempts * 1.5);
+        return `<tr style="${isRisk ? 'background:rgba(239,68,68,0.06);' : ''}">
+          <td style="padding:8px 12px;font-size:13px;color:var(--text-primary);border-bottom:1px solid var(--border-color);">${escHtml(s.name)}</td>
+          <td style="padding:8px 12px;font-size:13px;text-align:center;border-bottom:1px solid var(--border-color);color:${s.masteredTopics >= numTopics ? '#10b981' : '#f59e0b'};">${s.masteredTopics} / ${numTopics}</td>
+          <td style="padding:8px 12px;font-size:13px;text-align:center;border-bottom:1px solid var(--border-color);color:${s.skipped > 0 ? '#ef4444' : 'var(--text-muted)'};">${s.skipped}</td>
+          <td style="padding:8px 12px;font-size:13px;text-align:center;border-bottom:1px solid var(--border-color);color:var(--text-primary);">${s.totalRepeats}</td>
+          <td style="padding:8px 12px;font-size:13px;color:var(--text-muted);border-bottom:1px solid var(--border-color);">${escHtml(doporuceni)}</td>
+        </tr>`;
+      }).join('');
+
+    const chartId = 'chartEduTopics';
+    const chartH = Math.max(180, topicStats.length * 38);
+
+    const eduHtml = `
+      <div style="margin-bottom:20px;">
+        <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Průměrné skóre per téma</div>
+        <div style="position:relative;height:${chartH}px;"><canvas id="${chartId}"></canvas></div>
+      </div>
+      <div style="margin-bottom:20px;">
+        <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Přehled témat — seřazeno od nejhoršího</div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead><tr style="border-bottom:2px solid var(--border-color);">
+              <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Téma</th>
+              <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Průměr %</th>
+              <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Zvládnuto studentů</th>
+            </tr></thead>
+            <tbody>${topicTableRows}</tbody>
+          </table>
+        </div>
+      </div>
+      ${atRiskRows ? `<div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Přehled studentů</div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead><tr style="border-bottom:2px solid var(--border-color);">
+              <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Student</th>
+              <th style="padding:8px 12px;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Zvládnuto témat</th>
+              <th style="padding:8px 12px;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Přeskočeno</th>
+              <th style="padding:8px 12px;text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Opakování</th>
+              <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Doporučení</th>
+            </tr></thead>
+            <tbody>${atRiskRows}</tbody>
+          </table>
+        </div>
+      </div>` : ''}`;
+
+    _showAiWeaknessPanel(eduHtml);
+
+    // Store for AI summary generation
+    _state._eduTopicStats    = topicStats;
+    _state._eduStudentData   = studentData;
+    _state._eduThreshold     = threshold;
+    _state._eduScenarioTitle = scenario?.title || scenarioId;
+    _state._eduAvgPct        = avgPct;
+    _state._eduNumStudents   = numStudents;
+
+    // Render chart after DOM paint
+    requestAnimationFrame(() => _renderEduTopicChart(chartId, topicStats, threshold));
+  }
+
+  function _renderEduTopicChart(canvasId, topicStats, threshold) {
+    destroyChart('eduTopics');
+    const ctx = document.getElementById(canvasId);
+    if (!ctx || !topicStats.length) return;
+    const colors = topicStats.map(t => t.avgPct >= 75 ? '#10b981' : t.avgPct >= 50 ? '#f59e0b' : '#ef4444');
+    const labels = topicStats.map(t => t.name.length > 22 ? t.name.slice(0, 22) + '…' : t.name);
+    _state.charts.eduTopics = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: '',
+            data: topicStats.map(t => t.avgPct),
+            backgroundColor: colors,
+            borderRadius: 4,
+            barThickness: 22,
+            order: 1,
+          },
+          {
+            label: 'Průměrné skóre (%)',
+            data: [],
+            type: 'line',
+            borderColor: '#ef4444',
+            borderWidth: 2,
+            pointRadius: 0,
+          },
+          {
+            label: `Práh (${threshold} %)`,
+            data: [],
+            type: 'line',
+            borderColor: '#f59e0b',
+            borderDash: [6, 4],
+            borderWidth: 2,
+            pointRadius: 0,
+          },
+        ],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true,
+            labels: {
+              color: '#ffffff',
+              boxHeight: 2,
+              filter: (item) => item.text !== '',
+            },
+            onClick: (e, legendItem, legend) => {
+              Chart.defaults.plugins.legend.onClick(e, legendItem, legend);
+            },
+          },
+          tooltip: {
+            callbacks: {
+              label: (item) => item.datasetIndex === 0
+                ? `${item.raw} % (${topicStats[item.dataIndex].masteredCount}/${topicStats[item.dataIndex].totalStudents} studentů zvládlo)`
+                : `Práh: ${item.raw} %`,
+            },
+          },
+        },
+        scales: {
+          x: {
+            beginAtZero: true, max: 100,
+            ticks: { color: '#fff', callback: v => `${v} %` },
+            title: { display: true, text: 'Průměrné skóre (%)', color: '#fff' },
+          },
+          y: { ticks: { color: '#fff', font: { size: 11 } } },
+        },
+      },
+      plugins: [{
+        id: 'avgPctLines',
+        afterDatasetsDraw(chart) {
+          const { ctx, scales: { x }, chartArea } = chart;
+          const meta = chart.getDatasetMeta(0);
+          ctx.save();
+
+          // Červené svislé čáry per téma
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([]);
+          meta.data.forEach((bar, i) => {
+            const xPos = x.getPixelForValue(topicStats[i].avgPct);
+            ctx.beginPath();
+            ctx.moveTo(xPos, bar.y - bar.height / 2 - 3);
+            ctx.lineTo(xPos, bar.y + bar.height / 2 + 3);
+            ctx.stroke();
+          });
+
+          // Oranžová threshold čára přes celou chartArea
+          const xThresh = x.getPixelForValue(threshold);
+          ctx.strokeStyle = '#f59e0b';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([6, 4]);
+          ctx.beginPath();
+          ctx.moveTo(xThresh, chartArea.top);
+          ctx.lineTo(xThresh, chartArea.bottom);
+          ctx.stroke();
+
+          ctx.restore();
+        },
+      }],
+    });
+  }
+
   // Expose callbacks used in HTML
   window.analyticsOnCourseChange = onCourseChange;
   window.analyticsOnScenarioChange = onScenarioChange;
   window.analyticsLoadAll = loadAll;
   window.analyticsGenerateAI = generateAiSummary;
-  window.analyticsExportCSV = exportCSV;
+  window.analyticsExportExcel = exportExcel;
 })();
+

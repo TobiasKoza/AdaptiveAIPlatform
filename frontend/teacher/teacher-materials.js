@@ -1,4 +1,4 @@
-window.API_BASE_MAT = window.API_BASE_MAT || window.API_BASE || "http://127.0.0.1:8000";
+﻿window.API_BASE_MAT = window.API_BASE_MAT || window.API_BASE || "http://127.0.0.1:8000";
 
 function getHeadersMat() {
     // Pro upload NIKDY nenastavuj Content-Type — browser ho nastaví automaticky s boundary
@@ -188,8 +188,8 @@ function addPendingFiles(files) {
 }
 
 function getFileIconSvg(ext) {
-    const colors = { pdf:'#ef4444', docx:'#3b82f6', pptx:'#f97316', png:'#10b981', jpg:'#10b981', jpeg:'#10b981', mp4:'#8b5cf6', txt:'#6b7280', md:'#6b7280' };
-    const labels = { pdf:'PDF', docx:'DOC', pptx:'PPT', png:'PNG', jpg:'JPG', jpeg:'JPG', mp4:'MP4', txt:'TXT', md:'MD' };
+    const colors = { pdf:'#ef4444', docx:'#3e67a8', pptx:'#f97316', png:'#10b981', jpg:'#10b981', jpeg:'#10b981', mp4:'#8b5cf6', txt:'#6b7280', md:'#6b7280', xlsx:'#10b981', csv:'#10b981' };
+    const labels = { pdf:'PDF', docx:'DOC', pptx:'PPT', png:'PNG', jpg:'JPG', jpeg:'JPG', mp4:'MP4', txt:'TXT', md:'MD', xlsx:'XLSX', csv:'CSV' };
     const color = colors[ext] || '#6b7280';
     const label = labels[ext] || ext?.toUpperCase() || '?';
     return `<svg width="42" height="50" viewBox="0 0 42 50" xmlns="http://www.w3.org/2000/svg">
@@ -233,3 +233,4 @@ async function uploadPendingMaterials(courseId) {
     const errors = await uploadMatFiles(window._pendingCourseFiles, courseId, true);
     return errors && errors.length > 0 ? errors.join(', ') : null;
 }
+

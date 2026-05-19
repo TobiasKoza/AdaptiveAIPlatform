@@ -32,7 +32,7 @@ function changeMockPassword() { sharedChangeMockPassword(initApp, "student"); }
 function logout() { sharedLogout(clearPolling, "student"); }
 
 async function apiGet(path) {
-    const response = await fetch(`${API_BASE}${path}`, { headers: getHeaders() });
+    const response = await fetch(`${API_BASE}${path}`, { headers: getHeaders(), cache: 'no-store' });
     if (!response.ok) {
     const text = await response.text();
     throw new Error(text || `GET ${path} failed`);
@@ -54,7 +54,7 @@ async function apiPost(path, body) {
 }
 
 async function apiGetText(path) {
-    const response = await fetch(`${API_BASE}${path}`, { headers: getHeaders() });
+    const response = await fetch(`${API_BASE}${path}`, { headers: getHeaders(), cache: 'no-store' });
     if (!response.ok) {
     const text = await response.text();
     throw new Error(text || `GET ${path} failed`);
@@ -73,8 +73,8 @@ function formatDate(value) {
 
 function parseGradingInfo(hints) {
     let style = 'points'; let max = 10;
-    const m = (hints || "").match(/\[GRADING:(points|percent):?(\d+)?\]/);
-    if (m) { style = m[1]; if (m[2]) max = parseInt(m[2], 10); }
+    const m = (hints || "").match(/\[GRADING:(points|percent|equal):?(\d+)?\]/);
+    if (m) { style = m[1] === 'equal' ? 'points' : m[1]; if (m[2]) max = parseInt(m[2], 10); }
     return { style, max };
 }
 
@@ -96,7 +96,6 @@ function showToast(message, isError = false, persistent = false) {
     if (!toast) {
     toast = document.createElement("div");
     toast.id = "studentToast";
-    toast.style.cssText = "position:fixed; top:-80px; right:20px; padding:12px 20px; border-radius:8px; font-size:14px; font-weight:bold; color:white; z-index:9999; transition:top 0.3s ease; box-shadow:0 4px 12px rgba(0,0,0,0.3); max-width:360px;";
     document.body.appendChild(toast);
     }
     toast.style.background = isError ? "#ef4444" : "#10b981";

@@ -1,4 +1,4 @@
-async function createAdaptiveScenario() {
+﻿async function createAdaptiveScenario() {
     const courseId = document.getElementById("scenarioCourseSelect").value;
     const title = document.getElementById("aiScenarioTitle").value.trim();
     const description = document.getElementById("aiScenarioDescription").value.trim();
@@ -6,7 +6,8 @@ async function createAdaptiveScenario() {
     const persona = document.getElementById("aiScenarioPersona").value.trim();
     const rubric = document.getElementById("aiScenarioGradingRubric").value.trim();
     const os = document.getElementById("aiScenarioRequiredOs").value;
-    const timeLimit = parseInt(document.getElementById("aiScenarioTimeLimit").value) || 60;
+    const timeLimitRaw = parseInt(document.getElementById("aiScenarioTimeLimit").value);
+    const timeLimit = isNaN(timeLimitRaw) ? 60 : timeLimitRaw;
     const subtasks = parseInt(document.getElementById("aiScenarioSubtasks").value) || 3;
     const deadline = document.getElementById("aiScenarioDeadline").value;
     const gradingStyle = document.getElementById("aiScenarioGradingStyle").value;
@@ -19,6 +20,8 @@ async function createAdaptiveScenario() {
     const allowSkip = document.getElementById("aiScenarioAllowSkip").value;
     const autoSubmitCreate = document.getElementById("aiScenarioAutoSubmit")?.checked ? '[AUTO_SUBMIT:true]' : '';
     const statusDiv = document.getElementById("aiScenarioStatus");
+    const scenarioSubType = document.getElementById("scenarioTaskType")?.value || 'adaptive';
+    const isEduType = scenarioSubType === 'ai_education';
 
     // Získání vybraných typů otázek a režimu střídání
     const isRotateCreate = document.getElementById("aiScenario_qtypesRotate").checked;
@@ -36,14 +39,24 @@ async function createAdaptiveScenario() {
     if (selectedTypesCreate.length === 0) selectedTypesCreate.push("otevřená odpověď");
     const qtypesTagCreate = `[QTYPES:${selectedTypesCreate.join(', ')}][QTYPES_ROTATE:${isRotateCreate}]`;
 
-    if (!courseId || !title || !description || !goal || !persona) {
-        statusDiv.style.color = "red";
-        statusDiv.innerText = "Vyplňte prosím název, popis, vzdělávací cíl i personu AI.";
+    const topics = document.getElementById("aiEdu_topics")?.value.trim() || '';
+    const validationErrors = [];
+    if (!courseId)     validationErrors.push({ msg: "Vyberte kurz.", id: "scenarioCourseSelect" });
+    if (!title)        validationErrors.push({ msg: "Vyplňte název zadání.", id: "aiScenarioTitle" });
+    if (!description)  validationErrors.push({ msg: "Vyplňte obecný popis.", id: "aiScenarioDescription" });
+    if (!persona)      validationErrors.push({ msg: "Vyplňte master prompt (personu AI).", id: "aiScenarioPersona" });
+    if (isEduType && !topics) validationErrors.push({ msg: "Vyplňte témata / kapitoly.", id: "aiEdu_topics" });
+    if (!isEduType && !goal)  validationErrors.push({ msg: "Vyplňte vzdělávací cíl.", id: "aiScenarioGoal" });
+
+    if (validationErrors.length > 0) {
+        showToast(validationErrors[0].msg, true);
+        const el = document.getElementById(validationErrors[0].id);
+        if (el) { el.focus(); el.style.borderColor = '#ef4444'; setTimeout(() => el.style.borderColor = '', 2000); }
         return;
     }
 
-    statusDiv.style.color = "#1d4ed8";
-    statusDiv.innerText = "Zakládám adaptivního AI mentora...";
+    showToast("Zakládám adaptivního AI mentora...");
+    statusDiv.innerText = "";
 
     try {
         // Zabalíme goal a personu do "instructions" pro backend
@@ -54,6 +67,22 @@ async function createAdaptiveScenario() {
         if (gradingStyle !== 'none') gradingHint += `:${maxPoints}`;
         gradingHint += `]`;
 
+        let hintsStr;
+        if (isEduType) {
+            const topics = document.getElementById("aiEdu_topics")?.value.trim() || '';
+            const presentation = document.getElementById("aiEdu_presentation")?.value || 'combined';
+            const verifyQ = parseInt(document.getElementById("aiEdu_verifyQ")?.value) || 2;
+            const threshold = parseInt(document.getElementById("aiEdu_threshold")?.value) || 75;
+            const maxRepeats = parseInt(document.getElementById("aiEdu_maxRepeats")?.value) || 3;
+            const verifyQtypes = document.getElementById("aiEdu_verifyQtypes")?.value || 'combined';
+            const explainStyle = document.getElementById("aiEdu_explainStyle")?.value || 'adaptive';
+            hintsStr = `[TYPE:ai_education][TOPICS:${topics}][PRESENTATION:${presentation}][VERIFY_Q:${verifyQ}][THRESHOLD:${threshold}][MAX_REPEATS:${maxRepeats}][VERIFY_QTYPES:${verifyQtypes}][EXPLAIN_STYLE:${explainStyle}][TIME_LIMIT:${timeLimit}]${gradingHint}${autoSubmitCreate}`;
+        } else {
+            hintsStr = `[ADAPTIVE:${adaptive}][SUBTASKS:${subtasks}][TIME_LIMIT:${timeLimit}][DIFFICULTY:${difficulty}][TAGS:${tags}][TOOLS:${tools}][ALLOW_SKIP:${allowSkip}]${gradingHint}${qtypesTagCreate}${autoSubmitCreate}`;
+        }
+        const _createPrereqIds = window.getPrereqIds?.('prereqsCreateContainer') || '';
+        if (_createPrereqIds) hintsStr += `[PREREQS:${_createPrereqIds}]`;
+
         const payload = {
             title: title,
             description: description,
@@ -63,7 +92,7 @@ async function createAdaptiveScenario() {
             time_limit: timeLimit,
             deadline: deadline || null,
             max_attempts: maxAttempts,
-            hints: `[ADAPTIVE:${adaptive}][SUBTASKS:${subtasks}][TIME_LIMIT:${timeLimit}][DIFFICULTY:${difficulty}][TAGS:${tags}][TOOLS:${tools}][ALLOW_SKIP:${allowSkip}]${gradingHint}${qtypesTagCreate}${autoSubmitCreate}`
+            hints: hintsStr
         };
 
         const res = await fetch(`${API_BASE}/api/ai/courses/${courseId}/ai-scenarios`, {
@@ -78,17 +107,17 @@ async function createAdaptiveScenario() {
 
         // Nahraj čekající materiály
         if (newScenarioId && window._pendingAiMaterials?.length > 0) {
-            statusDiv.innerText = "Nahrávám materiály...";
+            showToast("Nahrávám materiály...");
             await uploadAiMaterials(newScenarioId);
         }
 
-        statusDiv.style.color = "green";
-        statusDiv.innerText = `Adaptivní AI scénář '${title}' byl úspěšně vytvořen!`;
+        showToast(isEduType
+            ? `AI Vzdělávání '${title}' bylo úspěšně vytvořeno!`
+            : `Adaptivní AI scénář '${title}' byl úspěšně vytvořen!`);
         setTimeout(() => {
-            statusDiv.innerText = "";
             window._pendingAiMaterials = [];
             renderPendingAiFiles();
-            
+
             // Vyčištění všech polí
             document.getElementById("aiScenarioTitle").value = "";
             document.getElementById("aiScenarioDescription").value = "";
@@ -106,7 +135,34 @@ async function createAdaptiveScenario() {
             document.getElementById("aiScenarioTools").value = "";
             document.getElementById("aiScenarioMaxAttempts").value = "0";
             document.getElementById("aiScenarioAllowSkip").value = "true";
-            
+
+            // Edu-specific field reset
+            const eduTopics = document.getElementById("aiEdu_topics");
+            if (eduTopics) eduTopics.value = "";
+            const eduPresentation = document.getElementById("aiEdu_presentation");
+            if (eduPresentation) eduPresentation.value = "combined";
+            const eduExplainStyle = document.getElementById("aiEdu_explainStyle");
+            if (eduExplainStyle) eduExplainStyle.value = "adaptive";
+            const eduVerifyQ = document.getElementById("aiEdu_verifyQ");
+            if (eduVerifyQ) eduVerifyQ.value = "2";
+            const eduThreshold = document.getElementById("aiEdu_threshold");
+            if (eduThreshold) eduThreshold.value = "75";
+            const eduMaxRepeats = document.getElementById("aiEdu_maxRepeats");
+            if (eduMaxRepeats) eduMaxRepeats.value = "3";
+            const eduVerifyQtypes = document.getElementById("aiEdu_verifyQtypes");
+            if (eduVerifyQtypes) eduVerifyQtypes.value = "combined";
+
+            // Clear prereq rows from create form
+            const _prereqCreateCont = document.getElementById('prereqsCreateContainer');
+            if (_prereqCreateCont) _prereqCreateCont.innerHTML = '';
+
+            // Reset form type back to exercise mode
+            const typeSelect = document.getElementById("scenarioTaskType");
+            if (typeSelect) {
+                typeSelect.value = "adaptive";
+                if (typeof toggleScenarioFormType === 'function') toggleScenarioFormType();
+            }
+
             }, 3000);
 
     } catch (err) {
@@ -135,7 +191,7 @@ function renderAiPersonaTemplateButtons() {
             style="padding:5px 12px; font-size:12px; border-radius:6px; border:1px solid var(--border-color);
                    background:var(--bg-status); color:var(--text-primary); cursor:pointer;
                    transition:background 0.15s, border-color 0.15s; white-space:nowrap;"
-            onmouseover="this.style.background='var(--bg-card-hover)'; this.style.borderColor='#3b82f6';"
+            onmouseover="this.style.background='var(--bg-card-hover)'; this.style.borderColor='#3e67a8';"
             onmouseout="this.style.background='var(--bg-status)'; this.style.borderColor='var(--border-color)';"
             id="persona-btn-${t.id}">
             ${t.label}
@@ -159,12 +215,12 @@ function applyAiPersonaTemplate(templateId) {
     const activeBtn = document.getElementById(`persona-btn-${templateId}`);
     if (activeBtn) {
         activeBtn.style.background = '#eff6ff';
-        activeBtn.style.borderColor = '#3b82f6';
+        activeBtn.style.borderColor = '#3e67a8';
         activeBtn.style.fontWeight = 'bold';
     }
 
     textarea.value = template.text;
-    textarea.style.borderColor = '#3b82f6';
+    textarea.style.borderColor = '#3e67a8';
     setTimeout(() => { textarea.style.borderColor = '#d1d5db'; }, 1000);
 
     showToast(`Šablona "${template.label}" načtena.`);
@@ -181,8 +237,8 @@ window.toggleQtypesRotate = function(mode) {
         countInputs.forEach(inp => inp.style.display = 'none');
         if (subtasksInput) {
             subtasksInput.readOnly = false;
-            subtasksInput.style.background = 'var(--bg-input)';
-            subtasksInput.style.color = 'var(--text-primary)';
+            subtasksInput.style.background = '';
+            subtasksInput.style.color = '';
         }
     } else {
         countInputs.forEach(inp => inp.style.display = 'block');
@@ -193,49 +249,42 @@ window.toggleQtypesRotate = function(mode) {
         }
         window.recalcQtypesTotal(mode);
     }
+    window._updateQtypeHint(mode);
 };
 
 window.recalcQtypesTotal = function(mode) {
     const isRotate = document.getElementById(mode === 'create' ? 'aiScenario_qtypesRotate' : 'aiEdit_qtypesRotate').checked;
-    const subtasksInput = document.getElementById(mode === 'create' ? 'aiScenarioSubtasks' : 'aiEdit_subtasks');
-    const maxSubtasks = subtasksInput ? (parseInt(subtasksInput.value) || 1) : 99;
-
     if (isRotate) return;
 
+    const subtasksInput = document.getElementById(mode === 'create' ? 'aiScenarioSubtasks' : 'aiEdit_subtasks');
     const cbs = document.querySelectorAll(`.qtype-cb-${mode}`);
     let total = 0;
     cbs.forEach(cb => {
         const countInput = cb.closest('label').querySelector(`.qtype-count-${mode}`);
-        if (!cb.checked) {
-            if (countInput) countInput.value = 0;
-            return;
-        }
-        if (countInput) {
-            let val = parseInt(countInput.value) || 1;
-            // Omez aby součet nepřekročil maxSubtasks
-            const remaining = maxSubtasks - total;
-            if (val > remaining) {
-                val = Math.max(0, remaining);
-                countInput.value = val;
-            }
-            total += val;
-        }
+        if (!cb.checked) { if (countInput) countInput.value = 0; return; }
+        if (countInput) total += parseInt(countInput.value) || 1;
     });
+    if (subtasksInput) subtasksInput.value = total || 1;
+};
 
-    // Zobraz varování pokud je součet != subtasks
-    const warnId = mode === 'create' ? 'aiQtypesWarn' : 'aiEditQtypesWarn';
-    let warnEl = document.getElementById(warnId);
-    if (!warnEl) {
-        warnEl = document.createElement('div');
-        warnEl.id = warnId;
-        warnEl.style.cssText = 'font-size:11px;color:#f59e0b;margin-top:4px;';
-        subtasksInput?.parentNode?.appendChild(warnEl);
+window._updateQtypeHint = function(mode) {
+    const isRotate = document.getElementById(mode === 'create' ? 'aiScenario_qtypesRotate' : 'aiEdit_qtypesRotate')?.checked;
+    const hintId = mode === 'create' ? 'aiQtypesHint' : 'aiEditQtypesHint';
+    let hintEl = document.getElementById(hintId);
+    if (!hintEl) {
+        hintEl = document.createElement('div');
+        hintEl.id = hintId;
+        hintEl.className = 'warn-hint';
+        const subtasksInput = document.getElementById(mode === 'create' ? 'aiScenarioSubtasks' : 'aiEdit_subtasks');
+        subtasksInput?.parentNode?.appendChild(hintEl);
     }
-    if (total > 0 && total !== maxSubtasks) {
-        warnEl.textContent = `Součet typů: ${total} / ${maxSubtasks} podúkolů`;
-    } else {
-        warnEl.textContent = '';
-    }
+    if (!isRotate) { hintEl.textContent = ''; return; }
+    const n = parseInt(document.getElementById(mode === 'create' ? 'aiScenarioSubtasks' : 'aiEdit_subtasks')?.value) || 1;
+    const types = document.querySelectorAll(`.qtype-cb-${mode}:checked`).length;
+    const typLabel = types === 1 ? 'typ' : types < 5 ? 'typy' : 'typů';
+    hintEl.textContent = types > 0
+        ? `AI střídá ${types} ${typLabel} přes ${n} podúkolů`
+        : 'Vyberte alespoň jeden formát otázky';
 };
 
 window.updateQtypesLabel = function(mode) {
@@ -263,6 +312,7 @@ window.updateQtypesLabel = function(mode) {
     
     // Automaticky přepočítá úkoly, pokud se přidá nebo odebere formát
     window.recalcQtypesTotal(mode);
+    window._updateQtypeHint(mode);
 };
 window._pendingAiMaterials = [];
 
@@ -307,7 +357,7 @@ function renderPendingAiFiles() {
     if (!listEl) return;
     if (window._pendingAiMaterials.length === 0) { listEl.innerHTML = ""; return; }
 
-    const colors = { pdf:'#ef4444', docx:'#3b82f6', txt:'#6b7280', md:'#6b7280' };
+    const colors = { pdf:'#ef4444', docx:'#3e67a8', txt:'#6b7280', md:'#6b7280' };
     const labels = { pdf:'PDF', docx:'DOC', txt:'TXT', md:'MD' };
 
     listEl.innerHTML = '<div style="display:flex; flex-wrap:wrap; gap:12px; margin-top:8px;">'
@@ -363,7 +413,7 @@ async function loadAiScenarioMaterials(scenarioId) {
             container.innerHTML = '<div class="muted" style="font-size:13px;">Žádné materiály.</div>';
             return;
         }
-        const colors = { pdf:'#ef4444', docx:'#3b82f6', txt:'#6b7280', md:'#6b7280' };
+        const colors = { pdf:'#ef4444', docx:'#3e67a8', txt:'#6b7280', md:'#6b7280' };
         const labels = { pdf:'PDF', docx:'DOC', txt:'TXT', md:'MD' };
         container.innerHTML = '<div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:8px;">'
             + materials.map(m => {
@@ -416,7 +466,7 @@ function renderAiEditPersonaTemplateButtons() {
             title="${t.description}"
             style="padding:5px 12px; font-size:12px; border-radius:6px; border:1px solid var(--border-color);
                    background:var(--bg-status); color:var(--text-primary); cursor:pointer; white-space:nowrap;"
-            onmouseover="this.style.background='var(--bg-card-hover)'; this.style.borderColor='#3b82f6';"
+            onmouseover="this.style.background='var(--bg-card-hover)'; this.style.borderColor='#3e67a8';"
             onmouseout="this.style.background='var(--bg-status)'; this.style.borderColor='var(--border-color)';"
             id="edit-persona-btn-${t.id}">
             ${t.label}
@@ -437,7 +487,7 @@ function applyAiEditPersonaTemplate(templateId) {
     const activeBtn = document.getElementById(`edit-persona-btn-${templateId}`);
     if (activeBtn) {
         activeBtn.style.background = '#eff6ff';
-        activeBtn.style.borderColor = '#3b82f6';
+        activeBtn.style.borderColor = '#3e67a8';
         activeBtn.style.fontWeight = 'bold';
     }
     textarea.value = template.text;
@@ -481,7 +531,7 @@ function renderPendingAiEditFiles() {
     const listEl = document.getElementById("aiEditMatPendingList");
     if (!listEl) return;
     if (window._pendingAiEditMaterials.length === 0) { listEl.innerHTML = ""; return; }
-    const colors = { pdf:'#ef4444', docx:'#3b82f6', txt:'#6b7280', md:'#6b7280' };
+    const colors = { pdf:'#ef4444', docx:'#3e67a8', txt:'#6b7280', md:'#6b7280' };
     const labels = { pdf:'PDF', docx:'DOC', txt:'TXT', md:'MD' };
     listEl.innerHTML = '<div style="display:flex; flex-wrap:wrap; gap:12px; margin-top:8px;">'
         + window._pendingAiEditMaterials.map((f, i) => {
@@ -535,7 +585,8 @@ async function saveEditedAiScenario() {
     const persona = document.getElementById('aiEdit_persona').value.trim();
     const rubric = document.getElementById('aiEdit_rubric').value.trim();
     const os = document.getElementById('aiEdit_os').value;
-    const timeLimit = parseInt(document.getElementById('aiEdit_timeLimit').value) || 60;
+    const timeLimitRaw = parseInt(document.getElementById('aiEdit_timeLimit').value);
+    const timeLimit = isNaN(timeLimitRaw) ? 60 : timeLimitRaw;
     const subtasks = parseInt(document.getElementById('aiEdit_subtasks').value) || 3;
     const deadline = document.getElementById('aiEdit_deadline').value;
     const gradingStyle = document.getElementById('aiEdit_gradingStyle').value;
@@ -588,6 +639,29 @@ async function saveEditedAiScenario() {
     if (gradingStyle !== 'none') gradingHint += `:${maxPoints}`;
     gradingHint += ']';
 
+    // Determine if this is an education scenario (from existing hints in the table or from visible edu fields)
+    const currentHints = document.getElementById('aiEditEdu_topics') ? (() => {
+        const eduEl = document.getElementById('aiEditEdu_fields');
+        return eduEl && eduEl.style.display !== 'none';
+    })() : false;
+    const isEduEdit = currentHints;
+
+    let editHintsStr;
+    if (isEduEdit) {
+        const topicsEdit = document.getElementById('aiEditEdu_topics')?.value.trim() || '';
+        const presEdit = document.getElementById('aiEditEdu_presentation')?.value || 'combined';
+        const verifyQEdit = parseInt(document.getElementById('aiEditEdu_verifyQ')?.value) || 2;
+        const threshEdit = parseInt(document.getElementById('aiEditEdu_threshold')?.value) || 75;
+        const maxRepEdit = parseInt(document.getElementById('aiEditEdu_maxRepeats')?.value) || 3;
+        const vqtypesEdit = document.getElementById('aiEditEdu_verifyQtypes')?.value || 'combined';
+        const explainEdit = document.getElementById('aiEditEdu_explainStyle')?.value || 'adaptive';
+        editHintsStr = `[TYPE:ai_education][TOPICS:${topicsEdit}][PRESENTATION:${presEdit}][VERIFY_Q:${verifyQEdit}][THRESHOLD:${threshEdit}][MAX_REPEATS:${maxRepEdit}][VERIFY_QTYPES:${vqtypesEdit}][EXPLAIN_STYLE:${explainEdit}][TIME_LIMIT:${timeLimit}]${gradingHint}${autoSubmit}`;
+    } else {
+        editHintsStr = `[ADAPTIVE:${adaptive}][SUBTASKS:${subtasks}][TIME_LIMIT:${timeLimit}][DIFFICULTY:${difficulty}][TAGS:${tags}][TOOLS:${tools}][ALLOW_SKIP:${allowSkip}]${gradingHint}${qtypesTagEdit}${autoSubmit}`;
+    }
+    const _aiEditPrereqIds = window.getPrereqIds?.('prereqsAiEditContainer') || '';
+    if (_aiEditPrereqIds) editHintsStr += `[PREREQS:${_aiEditPrereqIds}]`;
+
     try {
         const res = await fetch(`${API_BASE}/api/ai/scenarios/${scenarioId}/update`, {
             method: 'PUT',
@@ -601,7 +675,7 @@ async function saveEditedAiScenario() {
                 time_limit: timeLimit,
                 deadline: deadline || null,
                 max_attempts: maxAttempts,
-                hints: `[ADAPTIVE:${adaptive}][SUBTASKS:${subtasks}][TIME_LIMIT:${timeLimit}][DIFFICULTY:${difficulty}][TAGS:${tags}][TOOLS:${tools}][ALLOW_SKIP:${allowSkip}]${gradingHint}${qtypesTagEdit}${autoSubmit}`
+                hints: editHintsStr
             })
         });
         if (!res.ok) throw new Error(await res.text());
@@ -609,6 +683,13 @@ async function saveEditedAiScenario() {
         showToast('Změny byly uloženy.');
         if (window._pendingAiEditMaterials?.length > 0) {
             await uploadAiEditMaterials(scenarioId);
+        }
+
+        // Immediately patch local cache so reopening edit form shows correct prereqs/hints
+        if (window._scenarioCache && window._scenarioCache[scenarioId]) {
+            window._scenarioCache[scenarioId].hints = editHintsStr;
+            window._scenarioCache[scenarioId].title = title;
+            window._scenarioCache[scenarioId].description = description;
         }
 
         // Obnov cache — znovu načti zadání z API
@@ -620,3 +701,4 @@ async function saveEditedAiScenario() {
         if (saveBtn) saveBtn.disabled = false;
     }
 }
+
