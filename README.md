@@ -93,3 +93,10 @@ functions-app/   Azure Functions — spouštění ACI kontejnerů (Kali Linux)
 ```
 
 Data jsou v Azure — není potřeba lokální databáze.
+
+## Konfigurace
+
+Vložit `.env` do složky `backend\` místo `.env.example`
+
+Soubor `.env.example` obsahuje všechny požadované proměnné prostředí s popisem.
+Bez vyplněných klíčů pro Azure Storage a GitHub Models API platforma nespustí.
